@@ -34,7 +34,7 @@ public class PodController {
      *   "data": {
      *     "id": "4d6a49b7-8b75-4f2f-b6c5-9f5f9e4c6f61",
      *     "deliveryId": "ORD-1001",
-     *     "imageUrl": "http://localhost:8080/api/files/pods/pod.png",
+     *     "imageUrl": "http://localhost:8080/api/files/pods/4d6a49b7-8b75-4f2f-b6c5-9f5f9e4c6f61",
      *     "customerSignature": "John Smith"
      *   }
      * }

@@ -31,6 +31,29 @@ Start the application:
 ./mvnw spring-boot:run
 ```
 
+## Docker
+
+Build the image:
+
+```bash
+docker build -t virtusa-logistics .
+```
+
+Run it locally with a Supabase PostgreSQL connection:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e PORT=8080 \
+  -e SPRING_DATASOURCE_URL=jdbc:postgresql://<supabase-host>:5432/postgres?sslmode=require \
+  -e SPRING_DATASOURCE_USERNAME=postgres \
+  -e SPRING_DATASOURCE_PASSWORD=<supabase-password> \
+  -e APP_JWT_SECRET=change-me \
+  -e APP_JWT_EXPIRATION_MS=86400000 \
+  virtusa-logistics
+```
+
+On Render, use the same env vars and point `SPRING_DATASOURCE_URL` at Supabase. The database stays in Supabase, so container restarts do not wipe your data. POD images are now stored in PostgreSQL as binary data, not on the container filesystem.
+
 Run tests:
 
 ```bash

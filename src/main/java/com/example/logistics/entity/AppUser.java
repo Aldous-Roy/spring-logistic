@@ -38,7 +38,7 @@ public class AppUser extends AuditableEntity {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false, length = 30)
     private UserRole role;
-
+//by default it should be false change once it gets active-->
     @Column(name = "active", nullable = false)
     private boolean active = true;
 }
