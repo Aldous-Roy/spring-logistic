@@ -2,14 +2,12 @@ services:
   - type: web
     name: virtusa-logistics
     env: docker
-    plan: starter
+    plan: free
     autoDeploy: true
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /actuator/health
     envVars:
-      - key: PORT
-        value: 8080
       - key: SPRING_DATASOURCE_URL
         sync: false
       - key: SPRING_DATASOURCE_USERNAME
