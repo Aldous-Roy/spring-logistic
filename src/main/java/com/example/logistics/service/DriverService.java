@@ -1,0 +1,156 @@
+package com.example.logistics.service;
+
+import com.example.logistics.dto.driver.AssignedDriverRouteResponse;
+import com.example.logistics.dto.driver.AttendanceResponse;
+import com.example.logistics.dto.driver.DriverCreateRequest;
+import com.example.logistics.dto.driver.DriverResponse;
+import com.example.logistics.dto.driver.TodayStopResponse;
+import com.example.logistics.entity.DeliveryOrder;
+import com.example.logistics.entity.DeliveryRoute;
+import com.example.logistics.entity.DriverAttendance;
+import com.example.logistics.entity.DriverProfile;
+import com.example.logistics.entity.enums.DeliveryStatus;
+import com.example.logistics.entity.enums.RouteStatus;
+import com.example.logistics.exception.ConflictException;
+import com.example.logistics.exception.InvalidOperationException;
+import com.example.logistics.exception.ResourceNotFoundException;
+import com.example.logistics.repository.DeliveryOrderRepository;
+import com.example.logistics.repository.DeliveryRouteRepository;
+import com.example.logistics.repository.DriverAttendanceRepository;
+import com.example.logistics.repository.DriverProfileRepository;
+import com.example.logistics.security.CurrentUserFacade;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class DriverService {
+
+    private final DriverProfileRepository driverRepository;
+    private final DeliveryRouteRepository routeRepository;
+    private final DeliveryOrderRepository orderRepository;
+    private final DriverAttendanceRepository attendanceRepository;
+    private final CurrentUserFacade currentUserFacade;
+    private final EmployeeIdGenerator employeeIdGenerator;
+
+    @Transactional
+    public DriverResponse upsertDriver(DriverCreateRequest request) {
+        DriverProfile driver = new DriverProfile();
+        driver.setEmployeeId(employeeIdGenerator.generate());
+        driver.setFirstName(request.firstName());
+        driver.setLastName(request.lastName());
+        driver.setPhoneNumber(request.phoneNumber());
+        driver.setMaxPackageCapacity(request.maxPackageCapacity() == null ? 50 : request.maxPackageCapacity());
+        driver.setMaxWeightCapacityKg(request.maxWeightCapacityKg() == null ? new BigDecimal("300.00") : request.maxWeightCapacityKg());
+        driver.setActive(request.active());
+        DriverProfile saved = driverRepository.save(driver);
+        return toResponse(saved);
+    }
+
+    public List<DriverResponse> listDrivers() {
+        return driverRepository.findByActiveTrueOrderByCreatedAtDesc().stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
+    public AttendanceResponse checkIn() {
+        DriverProfile driver = currentDriver();
+        attendanceRepository.findByDriverId(driver.getDriverId()).ifPresent(attendance -> {
+            if (attendance.isActive()) {
+                throw new ConflictException("Driver is already checked in");
+            }
+        });
+        DriverAttendance attendance = attendanceRepository.findByDriverId(driver.getDriverId()).orElseGet(DriverAttendance::new);
+        attendance.setDriverId(driver.getDriverId());
+        attendance.setCheckedInAt(LocalDateTime.now());
+        attendance.setCheckedOutAt(null);
+        attendance.setActive(true);
+        DriverAttendance saved = attendanceRepository.save(attendance);
+        return toAttendanceResponse(saved);
+    }
+
+    @Transactional
+    public AttendanceResponse checkOut() {
+        DriverProfile driver = currentDriver();
+        DriverAttendance attendance = attendanceRepository.findByDriverId(driver.getDriverId())
+                .orElseThrow(() -> new InvalidOperationException("Driver has not checked in"));
+        if (!attendance.isActive()) {
+            throw new ConflictException("Driver is already checked out");
+        }
+        attendance.setCheckedOutAt(LocalDateTime.now());
+        attendance.setActive(false);
+        return toAttendanceResponse(attendanceRepository.save(attendance));
+    }
+
+    public AttendanceResponse currentAttendance() {
+        DriverProfile driver = currentDriver();
+        return attendanceRepository.findByDriverId(driver.getDriverId())
+                .map(this::toAttendanceResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("Attendance not found for current driver"));
+    }
+
+    public List<AssignedDriverRouteResponse> assignedRoutes() {
+        DriverProfile driver = currentDriver();
+        return routeRepository.findByDriverIdOrderByRouteDateAscCreatedAtAsc(driver.getDriverId()).stream()
+                .map(route -> new AssignedDriverRouteResponse(
+                        route.getRouteId(),
+                        route.getRouteCode(),
+                        route.getRouteDate(),
+                        route.getStatus(),
+                        orderRepository.findByRouteOrderBySequenceNumberAscCreatedAtAsc(route).size()
+                ))
+                .toList();
+    }
+
+    public List<TodayStopResponse> todaysStops() {
+        DriverProfile driver = currentDriver();
+        LocalDate today = LocalDate.now();
+        return routeRepository.findByDriverIdAndRouteDate(driver.getDriverId(), today).stream()
+                .flatMap(route -> orderRepository.findByRouteOrderBySequenceNumberAscCreatedAtAsc(route).stream())
+                .map(order -> new TodayStopResponse(
+                        order.getOrderId(),
+                        order.getRoute() == null ? null : order.getRoute().getRouteCode(),
+                        order.getSequenceNumber(),
+                        order.getCustomerName(),
+                        order.getDeliveryAddress(),
+                        order.getStatus()
+                ))
+                .toList();
+    }
+
+    public DriverProfile currentDriver() {
+        String employeeId = currentUserFacade.currentUser().getEmployeeId();
+        return driverRepository.findByEmployeeId(employeeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Driver profile not found for employeeId: " + employeeId));
+    }
+
+    private DriverResponse toResponse(DriverProfile driver) {
+        return new DriverResponse(
+                driver.getDriverId(),
+                driver.getEmployeeId(),
+                driver.getFirstName(),
+                driver.getLastName(),
+                driver.getPhoneNumber(),
+                driver.getMaxPackageCapacity(),
+                driver.getMaxWeightCapacityKg(),
+                driver.isActive(),
+                driver.getCreatedAt(),
+                driver.getUpdatedAt()
+        );
+    }
+
+    private AttendanceResponse toAttendanceResponse(DriverAttendance attendance) {
+        return new AttendanceResponse(
+                attendance.getId(),
+                attendance.getDriverId(),
+                attendance.getCheckedInAt(),
+                attendance.getCheckedOutAt(),
+                attendance.isActive()
+        );
+    }
+}

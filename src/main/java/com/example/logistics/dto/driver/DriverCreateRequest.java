@@ -1,0 +1,16 @@
+package com.example.logistics.dto.driver;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+import java.math.BigDecimal;
+
+public record DriverCreateRequest(
+        @NotBlank String firstName,
+        @NotBlank String lastName,
+        @NotBlank String phoneNumber,
+        Integer maxPackageCapacity,
+        BigDecimal maxWeightCapacityKg,
+        @NotNull Boolean active
+) {
+}
