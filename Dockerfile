@@ -22,4 +22,4 @@ COPY --from=build /app/app.jar /app/app.jar
 
 USER appuser
 
-ENTRYPOINT ["sh", "-c", "exec java -jar /app/app.jar --server.port=${PORT:-8080}"]
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
