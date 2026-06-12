@@ -6,6 +6,7 @@ import com.example.logistics.dto.route.AssignDriverRequest;
 import com.example.logistics.dto.route.AssignOrdersRequest;
 import com.example.logistics.dto.route.RouteCreateRequest;
 import com.example.logistics.dto.route.RouteResponse;
+import com.example.logistics.dto.route.ResequenceOrdersRequest;
 import com.example.logistics.dto.stop.StopResponse;
 import com.example.logistics.service.DeliveryOrderService;
 import com.example.logistics.service.RouteService;
@@ -169,6 +170,23 @@ public class RouteController {
     @PreAuthorize("hasRole('DISPATCHER')")
     public ResponseEntity<ApiResponse<RouteResponse>> assignOrders(@PathVariable UUID id, @Valid @RequestBody AssignOrdersRequest request) {
         return ResponseEntity.ok(ApiResponse.success(routeService.assignOrders(id, request), 200));
+    }
+
+    /**
+     * API: POST /api/routes/{id}/resequence
+     * Method: resequence
+     * Request:
+     * {
+     *   "orderIds": ["ORD-1002", "ORD-1001", "ORD-1003"]
+     * }
+     */
+    @PostMapping("/{id}/resequence")
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public ResponseEntity<ApiResponse<RouteResponse>> resequence(
+            @PathVariable UUID id,
+            @Valid @RequestBody ResequenceOrdersRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(routeService.resequenceOrders(id, request), 200));
     }
 
     /**

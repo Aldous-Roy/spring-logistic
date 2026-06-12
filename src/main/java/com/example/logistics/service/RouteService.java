@@ -5,6 +5,7 @@ import com.example.logistics.dto.route.AssignDriverRequest;
 import com.example.logistics.dto.route.AssignOrdersRequest;
 import com.example.logistics.dto.route.RouteCreateRequest;
 import com.example.logistics.dto.route.RouteResponse;
+import com.example.logistics.dto.route.ResequenceOrdersRequest;
 import com.example.logistics.entity.DeliveryOrder;
 import com.example.logistics.entity.DeliveryRoute;
 import com.example.logistics.entity.DriverProfile;
@@ -24,7 +25,10 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -89,6 +93,40 @@ public class RouteService {
             order.setStatus(DeliveryStatus.ROUTED);
         }
         orderRepository.saveAll(orders);
+        return toResponse(route);
+    }
+
+    @Transactional
+    public RouteResponse resequenceOrders(UUID routeId, ResequenceOrdersRequest request) {
+        DeliveryRoute route = findRoute(routeId);
+        if (route.getStatus() == RouteStatus.COMPLETED || route.getStatus() == RouteStatus.CANCELLED) {
+            throw new InvalidOperationException("Cannot resequence orders on a closed route");
+        }
+
+        List<DeliveryOrder> currentOrders = orderRepository.findByRouteOrderBySequenceNumberAscCreatedAtAsc(route);
+        if (currentOrders.size() != request.orderIds().size()) {
+            throw new InvalidOperationException("Order list must include every stop assigned to the route");
+        }
+        if (new HashSet<>(request.orderIds()).size() != request.orderIds().size()) {
+            throw new InvalidOperationException("Order list contains duplicate orderIds");
+        }
+
+        Map<String, DeliveryOrder> ordersById = new LinkedHashMap<>();
+        for (DeliveryOrder order : currentOrders) {
+            ordersById.put(order.getOrderId(), order);
+        }
+
+        for (String orderId : request.orderIds()) {
+            if (!ordersById.containsKey(orderId)) {
+                throw new ResourceNotFoundException("Order not found on this route: " + orderId);
+            }
+        }
+
+        int sequence = 1;
+        for (String orderId : request.orderIds()) {
+            ordersById.get(orderId).setSequenceNumber(sequence++);
+        }
+        orderRepository.saveAll(ordersById.values());
         return toResponse(route);
     }
 
