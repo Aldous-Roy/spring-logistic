@@ -12,6 +12,8 @@ import com.example.logistics.service.RouteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -68,7 +71,7 @@ public class RouteController {
      * API: GET /api/routes
      * Method: list
      * Postman Request:
-     * GET /api/routes?page=0&size=10&sort=routeDate,desc
+     * GET /api/routes?search=RT-20260610&page=0&size=10&sort=routeDate,desc
      * Postman Response:
      * {
      *   "status": "success",
@@ -93,8 +96,11 @@ public class RouteController {
      */
     @GetMapping
     @PreAuthorize("hasRole('DISPATCHER')")
-    public ResponseEntity<ApiResponse<PageResponse<RouteResponse>>> list(Pageable pageable) {
-        return ResponseEntity.ok(ApiResponse.success(routeService.list(pageable), 200));
+    public ResponseEntity<ApiResponse<PageResponse<RouteResponse>>> list(
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 10, sort = {"routeDate", "createdAt"}, direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(routeService.list(pageable, search), 200));
     }
 
     /**

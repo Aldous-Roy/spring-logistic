@@ -16,6 +16,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -56,6 +57,11 @@ public class DeliveryOrderService {
         DeliveryRoute route = routeService.findRoute(routeId);
         Page<StopResponse> page = orderRepository.findByRoute(route, pageable).map(this::toResponse);
         return PageResponse.from(page);
+    }
+
+    public PageResponse<StopResponse> list(Pageable pageable, String search) {
+        Page<DeliveryOrder> page = orderRepository.search(StringUtils.hasText(search) ? search : null, pageable);
+        return PageResponse.from(page.map(this::toResponse));
     }
 
     @Transactional

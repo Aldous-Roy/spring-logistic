@@ -1,6 +1,7 @@
 package com.example.logistics.controller;
 
 import com.example.logistics.dto.common.ApiResponse;
+import com.example.logistics.dto.common.PageResponse;
 import com.example.logistics.dto.stop.FailDeliveryRequest;
 import com.example.logistics.dto.stop.CreateStopRequest;
 import com.example.logistics.dto.stop.StopResponse;
@@ -8,13 +9,18 @@ import com.example.logistics.dto.stop.UpdateStopStatusRequest;
 import com.example.logistics.service.DeliveryOrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -58,6 +64,21 @@ public class StopController {
     @PreAuthorize("hasRole('DISPATCHER')")
     public ResponseEntity<ApiResponse<StopResponse>> create(@Valid @RequestBody CreateStopRequest request) {
         return ResponseEntity.ok(ApiResponse.success(orderService.create(request), 200));
+    }
+
+    /**
+     * API: GET /api/stops
+     * Method: list
+     * Postman Request:
+     * GET /api/stops?search=John&page=0&size=10&sort=createdAt,desc
+     */
+    @GetMapping
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public ResponseEntity<ApiResponse<PageResponse<StopResponse>>> list(
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(orderService.list(pageable, search), 200));
     }
 
     /**

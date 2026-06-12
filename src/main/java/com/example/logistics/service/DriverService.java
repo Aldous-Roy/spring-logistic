@@ -5,6 +5,7 @@ import com.example.logistics.dto.driver.AttendanceResponse;
 import com.example.logistics.dto.driver.DriverCreateRequest;
 import com.example.logistics.dto.driver.DriverResponse;
 import com.example.logistics.dto.driver.TodayStopResponse;
+import com.example.logistics.dto.common.PageResponse;
 import com.example.logistics.entity.DeliveryOrder;
 import com.example.logistics.entity.DeliveryRoute;
 import com.example.logistics.entity.DriverAttendance;
@@ -20,8 +21,11 @@ import com.example.logistics.repository.DriverAttendanceRepository;
 import com.example.logistics.repository.DriverProfileRepository;
 import com.example.logistics.security.CurrentUserFacade;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -48,13 +52,17 @@ public class DriverService {
         driver.setPhoneNumber(request.phoneNumber());
         driver.setMaxPackageCapacity(request.maxPackageCapacity() == null ? 50 : request.maxPackageCapacity());
         driver.setMaxWeightCapacityKg(request.maxWeightCapacityKg() == null ? new BigDecimal("300.00") : request.maxWeightCapacityKg());
-        driver.setActive(request.active());
+        driver.setActive(false);
         DriverProfile saved = driverRepository.save(driver);
         return toResponse(saved);
     }
 
-    public List<DriverResponse> listDrivers() {
-        return driverRepository.findByActiveTrueOrderByCreatedAtDesc().stream().map(this::toResponse).toList();
+    public PageResponse<DriverResponse> listDrivers(Pageable pageable, String search) {
+        Page<DriverProfile> page = StringUtils.hasText(search)
+                ? driverRepository.findByEmployeeIdContainingIgnoreCaseOrFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrPhoneNumberContainingIgnoreCase(
+                        search, search, search, search, pageable)
+                : driverRepository.findAll(pageable);
+        return PageResponse.from(page.map(this::toResponse));
     }
 
     @Transactional
@@ -65,6 +73,8 @@ public class DriverService {
                 throw new ConflictException("Driver is already checked in");
             }
         });
+        driver.setActive(true);
+        driverRepository.save(driver);
         DriverAttendance attendance = attendanceRepository.findByDriverId(driver.getDriverId()).orElseGet(DriverAttendance::new);
         attendance.setDriverId(driver.getDriverId());
         attendance.setCheckedInAt(LocalDateTime.now());
@@ -82,6 +92,8 @@ public class DriverService {
         if (!attendance.isActive()) {
             throw new ConflictException("Driver is already checked out");
         }
+        driver.setActive(false);
+        driverRepository.save(driver);
         attendance.setCheckedOutAt(LocalDateTime.now());
         attendance.setActive(false);
         return toAttendanceResponse(attendanceRepository.save(attendance));

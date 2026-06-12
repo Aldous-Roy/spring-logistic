@@ -1,6 +1,8 @@
 package com.example.logistics.repository;
 
 import com.example.logistics.entity.DriverProfile;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -15,4 +17,12 @@ public interface DriverProfileRepository extends JpaRepository<DriverProfile, UU
     long countByActiveTrue();
 
     boolean existsByEmployeeId(String employeeId);
+
+    Page<DriverProfile> findByEmployeeIdContainingIgnoreCaseOrFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrPhoneNumberContainingIgnoreCase(
+            String employeeId,
+            String firstName,
+            String lastName,
+            String phoneNumber,
+            Pageable pageable
+    );
 }

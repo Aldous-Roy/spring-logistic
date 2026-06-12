@@ -1,6 +1,7 @@
 package com.example.logistics.controller;
 
 import com.example.logistics.dto.common.ApiResponse;
+import com.example.logistics.dto.common.PageResponse;
 import com.example.logistics.dto.driver.AttendanceResponse;
 import com.example.logistics.dto.driver.AssignedDriverRouteResponse;
 import com.example.logistics.dto.driver.DriverCreateRequest;
@@ -9,12 +10,16 @@ import com.example.logistics.dto.driver.TodayStopResponse;
 import com.example.logistics.service.DriverService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -36,7 +41,7 @@ public class DriverController {
      *   "phoneNumber": "9876543210",
      *   "maxPackageCapacity": 50,
      *   "maxWeightCapacityKg": 300.00,
-     *   "active": true
+     *   "active": false
      * }
      * Postman Response:
      * {
@@ -55,7 +60,7 @@ public class DriverController {
      * }
      */
     @PostMapping
-    @PreAuthorize("hasRole('DISPATCHER')")
+//    @PreAuthorize("hasRole('DISPATCHER')")
     public ResponseEntity<ApiResponse<DriverResponse>> create(@Valid @RequestBody DriverCreateRequest request) {
         return ResponseEntity.ok(ApiResponse.success(driverService.upsertDriver(request), 200));
     }
@@ -63,28 +68,41 @@ public class DriverController {
     /**
      * API: GET /api/drivers
      * Method: list
+     * Postman Request:
+     * GET /api/drivers?search=Ravi&page=0&size=10&sort=createdAt,desc
      * Postman Response:
      * {
      *   "status": "success",
      *   "statusCode": 200,
-     *   "data": [
-     *     {
-     *       "driverId": "0d8f9f2c-3d91-4c8d-9f55-1a7c8a7d2b21",
-     *       "employeeId": "DRV2001",
-     *       "firstName": "Ravi",
-     *       "lastName": "Kumar",
-     *       "phoneNumber": "9876543210",
-     *       "maxPackageCapacity": 50,
-     *       "maxWeightCapacityKg": 300.00,
-     *       "active": true
-     *     }
-     *   ]
+     *   "data": {
+     *     "content": [
+     *       {
+     *         "driverId": "0d8f9f2c-3d91-4c8d-9f55-1a7c8a7d2b21",
+     *         "employeeId": "DRV2001",
+     *         "firstName": "Ravi",
+     *         "lastName": "Kumar",
+     *         "phoneNumber": "9876543210",
+     *         "maxPackageCapacity": 50,
+     *         "maxWeightCapacityKg": 300.00,
+     *         "active": false
+     *       }
+     *     ],
+     *     "pageNumber": 0,
+     *     "pageSize": 10,
+     *     "totalElements": 1,
+     *     "totalPages": 1,
+     *     "first": true,
+     *     "last": true
+     *   }
      * }
      */
     @GetMapping
     @PreAuthorize("hasRole('DISPATCHER')")
-    public ResponseEntity<ApiResponse<List<DriverResponse>>> list() {
-        return ResponseEntity.ok(ApiResponse.success(driverService.listDrivers(), 200));
+    public ResponseEntity<ApiResponse<PageResponse<DriverResponse>>> list(
+            @RequestParam(required = false) String search,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(driverService.listDrivers(pageable, search), 200));
     }
 
     /**

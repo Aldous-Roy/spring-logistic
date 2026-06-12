@@ -16,6 +16,8 @@ public interface DeliveryRouteRepository extends JpaRepository<DeliveryRoute, UU
 
     Page<DeliveryRoute> findAllByOrderByRouteDateDescCreatedAtDesc(Pageable pageable);
 
+    Page<DeliveryRoute> findByRouteCodeContainingIgnoreCase(String routeCode, Pageable pageable);
+
     List<DeliveryRoute> findByDriverIdOrderByRouteDateAscCreatedAtAsc(UUID driverId);
 
     List<DeliveryRoute> findByDriverIdAndRouteDate(UUID driverId, LocalDate routeDate);
