@@ -10,8 +10,10 @@ import com.example.logistics.entity.DeliveryOrder;
 import com.example.logistics.entity.DeliveryRoute;
 import com.example.logistics.entity.DriverAttendance;
 import com.example.logistics.entity.DriverProfile;
+import com.example.logistics.entity.AppUser;
 import com.example.logistics.entity.enums.DeliveryStatus;
 import com.example.logistics.entity.enums.RouteStatus;
+import com.example.logistics.entity.enums.UserRole;
 import com.example.logistics.exception.ConflictException;
 import com.example.logistics.exception.InvalidOperationException;
 import com.example.logistics.exception.ResourceNotFoundException;
@@ -136,9 +138,28 @@ public class DriverService {
     }
 
     public DriverProfile currentDriver() {
-        String employeeId = currentUserFacade.currentUser().getEmployeeId();
-        return driverRepository.findByEmployeeId(employeeId)
-                .orElseThrow(() -> new ResourceNotFoundException("Driver profile not found for employeeId: " + employeeId));
+        AppUser currentUser = currentUserFacade.currentUser();
+        if (currentUser.getRole() != UserRole.DRIVER) {
+            throw new ResourceNotFoundException("Driver profile not available for non-driver user: " + currentUser.getEmployeeId());
+        }
+        return driverRepository.findByEmployeeId(currentUser.getEmployeeId())
+                .orElseGet(() -> driverRepository.save(createDriverProfile(currentUser)));
+    }
+
+    private DriverProfile createDriverProfile(AppUser user) {
+        String[] nameParts = user.getName() == null ? new String[0] : user.getName().trim().split("\\s+", 2);
+        String firstName = nameParts.length > 0 && !nameParts[0].isBlank() ? nameParts[0] : "Driver";
+        String lastName = nameParts.length > 1 && !nameParts[1].isBlank() ? nameParts[1] : "User";
+
+        DriverProfile driver = new DriverProfile();
+        driver.setEmployeeId(user.getEmployeeId());
+        driver.setFirstName(firstName);
+        driver.setLastName(lastName);
+        driver.setPhoneNumber("0000000000");
+        driver.setMaxPackageCapacity(50);
+        driver.setMaxWeightCapacityKg(new BigDecimal("300.00"));
+        driver.setActive(false);
+        return driver;
     }
 
     private DriverResponse toResponse(DriverProfile driver) {

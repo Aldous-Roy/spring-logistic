@@ -1,9 +1,9 @@
 package com.example.logistics.entity.enums;
 
 public enum RouteStatus {
-    DRAFT,
-    PUBLISHED,
-    ACTIVE,
+    CREATED,
+    ASSIGNED,
+    IN_PROGRESS,
     COMPLETED,
     CANCELLED
 }

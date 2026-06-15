@@ -1,8 +1,10 @@
 package com.example.logistics.config;
 
 import com.example.logistics.entity.AppUser;
+import com.example.logistics.entity.DriverProfile;
 import com.example.logistics.entity.enums.UserRole;
 import com.example.logistics.repository.AppUserRepository;
+import com.example.logistics.repository.DriverProfileRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
@@ -15,6 +17,7 @@ import org.springframework.stereotype.Component;
 public class DataInitializer implements CommandLineRunner {
 
     private final AppUserRepository userRepository;
+    private final DriverProfileRepository driverProfileRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
@@ -42,6 +45,19 @@ public class DataInitializer implements CommandLineRunner {
             driver.setActive(true);
             userRepository.save(driver);
             log.info("Created test user: EMP1002 (Driver)");
+
+            if (!driverProfileRepository.existsByEmployeeId("EMP1002")) {
+                DriverProfile driverProfile = new DriverProfile();
+                driverProfile.setEmployeeId("EMP1002");
+                driverProfile.setFirstName("Bob");
+                driverProfile.setLastName("Driver");
+                driverProfile.setPhoneNumber("9999999999");
+                driverProfile.setMaxPackageCapacity(50);
+                driverProfile.setMaxWeightCapacityKg(new java.math.BigDecimal("300.00"));
+                driverProfile.setActive(false);
+                driverProfileRepository.save(driverProfile);
+                log.info("Created matching driver profile for EMP1002");
+            }
             
             // Test user 3: Admin
             AppUser admin = new AppUser();

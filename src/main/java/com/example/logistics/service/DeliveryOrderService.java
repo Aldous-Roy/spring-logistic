@@ -13,7 +13,9 @@ import com.example.logistics.exception.ResourceNotFoundException;
 import com.example.logistics.repository.DeliveryOrderRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -55,12 +57,14 @@ public class DeliveryOrderService {
 
     public PageResponse<StopResponse> listByRoute(UUID routeId, Pageable pageable) {
         DeliveryRoute route = routeService.findRoute(routeId);
-        Page<StopResponse> page = orderRepository.findByRoute(route, pageable).map(this::toResponse);
+        Pageable mappedPageable = mapStopSort(pageable);
+        Page<StopResponse> page = orderRepository.findByRoute(route, mappedPageable).map(this::toResponse);
         return PageResponse.from(page);
     }
 
     public PageResponse<StopResponse> list(Pageable pageable, String search) {
-        Page<DeliveryOrder> page = orderRepository.search(StringUtils.hasText(search) ? search : null, pageable);
+        Pageable mappedPageable = mapStopSort(pageable);
+        Page<DeliveryOrder> page = orderRepository.search(StringUtils.hasText(search) ? search : null, mappedPageable);
         return PageResponse.from(page.map(this::toResponse));
     }
 
@@ -130,5 +134,14 @@ public class DeliveryOrderService {
                 order.getCreatedAt(),
                 order.getUpdatedAt()
         );
+    }
+
+    private Pageable mapStopSort(Pageable pageable) {
+        Sort mappedSort = Sort.by(pageable.getSort().stream()
+                .map(order -> "routeCode".equals(order.getProperty())
+                        ? new Sort.Order(order.getDirection(), "route.routeCode")
+                        : order)
+                .toList());
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), mappedSort);
     }
 }

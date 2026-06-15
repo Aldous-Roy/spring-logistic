@@ -29,8 +29,20 @@ public class DeliveryRoute extends AuditableEntity {
 
     @jakarta.persistence.Id
     @UuidGenerator
-    @Column(name = "route_id", nullable = false, updatable = false)
+    @Column(name = "id", nullable = false, updatable = false)
     private UUID routeId;
+
+    @Column(name = "route_id", nullable = false, unique = true, updatable = false)
+    private UUID routeUuid;
+
+    @Column(name = "assigned_driver_id")
+    private UUID assignedDriverId;
+
+    @Column(name = "completed_stops", nullable = false)
+    private Integer completedStops = 0;
+
+    @Column(name = "total_stops", nullable = false)
+    private Integer totalStops = 0;
 
     @Column(name = "route_code", nullable = false, unique = true, length = 100)
     private String routeCode;
@@ -40,7 +52,7 @@ public class DeliveryRoute extends AuditableEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 30)
-    private RouteStatus status = RouteStatus.DRAFT;
+    private RouteStatus status = RouteStatus.CREATED;
 
     @Column(name = "driver_id")
     private UUID driverId;

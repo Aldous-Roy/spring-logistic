@@ -38,16 +38,21 @@ public class RouteService {
     private final DeliveryRouteRepository routeRepository;
     private final DeliveryOrderRepository orderRepository;
     private final DriverProfileRepository driverRepository;
+    private final RouteOptimizationService routeOptimizationService;
 
     @Transactional
     public RouteResponse create(RouteCreateRequest request) {
         DeliveryRoute route = new DeliveryRoute();
+        UUID routeUuid = UUID.randomUUID();
+        route.setRouteUuid(routeUuid);
         route.setRouteCode(request.routeCode());
         route.setRouteDate(request.routeDate());
         route.setTotalDistanceKm(request.totalDistanceKm() == null ? BigDecimal.ZERO : request.totalDistanceKm());
         route.setEstimatedDurationMins(request.estimatedDurationMins() == null ? 0 : request.estimatedDurationMins());
         route.setRoutePolyline(request.routePolyline());
-        route.setStatus(RouteStatus.DRAFT);
+        route.setStatus(RouteStatus.CREATED);
+        route.setTotalStops(0);
+        route.setCompletedStops(0);
         return toResponse(routeRepository.save(route));
     }
 
@@ -73,6 +78,10 @@ public class RouteService {
         DriverProfile driver = driverRepository.findById(request.driverId())
                 .orElseThrow(() -> new ResourceNotFoundException("Driver not found: " + request.driverId()));
         route.setDriverId(driver.getDriverId());
+        route.setAssignedDriverId(driver.getDriverId());
+        if (route.getStatus() == RouteStatus.CREATED) {
+            route.setStatus(RouteStatus.ASSIGNED);
+        }
         return toResponse(routeRepository.save(route));
     }
 
@@ -86,13 +95,26 @@ public class RouteService {
         if (orders.size() != request.orderIds().size()) {
             throw new ResourceNotFoundException("One or more delivery orders were not found");
         }
+
+        RouteOptimizationService.RoutePlan routePlan = routeOptimizationService.optimize(orders);
+        List<DeliveryOrder> orderedOrders = routePlan.orderedOrders().isEmpty() ? orders : routePlan.orderedOrders();
+
         int sequence = 1;
-        for (DeliveryOrder order : orders) {
+        for (DeliveryOrder order : orderedOrders) {
             order.setRoute(route);
             order.setSequenceNumber(sequence++);
             order.setStatus(DeliveryStatus.ROUTED);
         }
-        orderRepository.saveAll(orders);
+        route.setTotalStops(orderedOrders.size());
+        route.setCompletedStops(0);
+        route.setRoutePolyline(routePlan.routePolyline());
+        route.setTotalDistanceKm(routePlan.totalDistanceKm());
+        route.setEstimatedDurationMins(routePlan.estimatedDurationMins());
+        if (route.getStatus() == RouteStatus.CREATED) {
+            route.setStatus(RouteStatus.ASSIGNED);
+        }
+        orderRepository.saveAll(orderedOrders);
+        routeRepository.save(route);
         return toResponse(route);
     }
 
@@ -126,15 +148,25 @@ public class RouteService {
         for (String orderId : request.orderIds()) {
             ordersById.get(orderId).setSequenceNumber(sequence++);
         }
-        orderRepository.saveAll(ordersById.values());
+        List<DeliveryOrder> finalOrders = request.orderIds().stream()
+                .map(ordersById::get)
+                .toList();
+        RouteOptimizationService.RoutePlan routePlan = routeOptimizationService.summarize(finalOrders);
+        route.setRoutePolyline(routePlan.routePolyline());
+        route.setTotalDistanceKm(routePlan.totalDistanceKm());
+        route.setEstimatedDurationMins(routePlan.estimatedDurationMins());
+        orderRepository.saveAll(finalOrders);
+        routeRepository.save(route);
         return toResponse(route);
     }
 
     @Transactional
     public RouteResponse publish(UUID routeId) {
         DeliveryRoute route = findRoute(routeId);
-        ensureStatus(route, RouteStatus.DRAFT, "Only draft routes can be published");
-        route.setStatus(RouteStatus.PUBLISHED);
+        if (route.getStatus() != RouteStatus.CREATED && route.getStatus() != RouteStatus.ASSIGNED) {
+            throw new InvalidOperationException("Only created or assigned routes can be published");
+        }
+        route.setStatus(RouteStatus.ASSIGNED);
         route.setPublishedAt(LocalDateTime.now());
         return toResponse(routeRepository.save(route));
     }
@@ -142,10 +174,10 @@ public class RouteService {
     @Transactional
     public RouteResponse activate(UUID routeId) {
         DeliveryRoute route = findRoute(routeId);
-        if (route.getStatus() != RouteStatus.PUBLISHED) {
-            throw new InvalidOperationException("Only published routes can be activated");
+        if (route.getStatus() != RouteStatus.ASSIGNED) {
+            throw new InvalidOperationException("Only assigned routes can be activated");
         }
-        route.setStatus(RouteStatus.ACTIVE);
+        route.setStatus(RouteStatus.IN_PROGRESS);
         route.setActualStartAt(LocalDateTime.now());
         return toResponse(routeRepository.save(route));
     }
@@ -153,8 +185,8 @@ public class RouteService {
     @Transactional
     public RouteResponse complete(UUID routeId) {
         DeliveryRoute route = findRoute(routeId);
-        if (route.getStatus() != RouteStatus.ACTIVE) {
-            throw new InvalidOperationException("Only active routes can be completed");
+        if (route.getStatus() != RouteStatus.IN_PROGRESS) {
+            throw new InvalidOperationException("Only in-progress routes can be completed");
         }
         route.setStatus(RouteStatus.COMPLETED);
         route.setActualEndAt(LocalDateTime.now());

@@ -96,7 +96,7 @@ public class RouteController {
      * }
      */
     @GetMapping
-    @PreAuthorize("hasRole('DISPATCHER')")
+//    @PreAuthorize("hasRole('DISPATCHER')")
     public ResponseEntity<ApiResponse<PageResponse<RouteResponse>>> list(
             @RequestParam(required = false) String search,
             @PageableDefault(size = 10, sort = {"routeDate", "createdAt"}, direction = Sort.Direction.DESC) Pageable pageable
