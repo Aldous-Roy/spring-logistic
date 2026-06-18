@@ -66,6 +66,12 @@ public class StopController {
         return ResponseEntity.ok(ApiResponse.success(orderService.create(request), 200));
     }
 
+    @PostMapping("/bulk")
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public ResponseEntity<ApiResponse<java.util.List<StopResponse>>> createBulk(@Valid @RequestBody java.util.List<CreateStopRequest> requests) {
+        return ResponseEntity.ok(ApiResponse.success(orderService.createBulk(requests), 200));
+    }
+
     /**
      * API: GET /api/stops
      * Method: list

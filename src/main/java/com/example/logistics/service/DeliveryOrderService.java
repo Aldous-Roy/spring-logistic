@@ -78,6 +78,11 @@ public class DeliveryOrderService {
         return toResponse(orderRepository.save(order));
     }
 
+    @Transactional
+    public List<StopResponse> createBulk(List<CreateStopRequest> requests) {
+        return requests.stream().map(this::create).toList();
+    }
+
     public PageResponse<StopResponse> listByRoute(UUID routeId, Pageable pageable) {
         DeliveryRoute route = routeService.findRoute(routeId);
         Pageable mappedPageable = mapStopSort(pageable);
