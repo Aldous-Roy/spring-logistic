@@ -239,7 +239,7 @@ public class DeliveryOrderService {
     private StopResponse toResponse(DeliveryOrder order) {
         String podUrl = null;
         if (order.getStatus() == DeliveryStatus.DELIVERED) {
-            podUrl = podRepository.findByDeliveryId(order.getOrderId())
+            podUrl = podRepository.findByDeliveryIdOrderByUploadedAtDesc(order.getOrderId())
                 .stream()
                 .findFirst()
                 .map(com.example.logistics.entity.PodRecord::getImageUrl)

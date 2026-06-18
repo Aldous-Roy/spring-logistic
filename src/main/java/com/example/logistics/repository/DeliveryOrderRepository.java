@@ -12,7 +12,9 @@ import org.springframework.data.repository.query.Param;
 import java.time.LocalDate;
 import java.util.List;
 
-public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, String> {
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
+
+public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, String>, JpaSpecificationExecutor<DeliveryOrder> {
     Page<DeliveryOrder> findByRoute(DeliveryRoute route, Pageable pageable);
 
     List<DeliveryOrder> findByRouteOrderBySequenceNumberAscCreatedAtAsc(DeliveryRoute route);
