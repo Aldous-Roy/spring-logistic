@@ -17,6 +17,8 @@ public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, St
 
     List<DeliveryOrder> findByRouteOrderBySequenceNumberAscCreatedAtAsc(DeliveryRoute route);
 
+    java.util.Optional<DeliveryOrder> findByRouteAndSequenceNumber(DeliveryRoute route, Integer sequenceNumber);
+
     long countByStatus(DeliveryStatus status);
 
     long countByRoute_RouteDate(LocalDate routeDate);

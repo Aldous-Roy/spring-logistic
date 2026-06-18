@@ -82,9 +82,9 @@ public class DeliveryOrderService {
                 order.setFailedReasonNotes(request.status().name());
             }
             order.setStatus(DeliveryStatus.FAILED);
-            // Send failed SMS
-            String nextDate = LocalDateTime.now().plusDays(1).format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
-            smsService.sendDeliveryFailedAlert(order, nextDate, "+1234567890"); // Placeholder support phone
+            String reason = order.getFailedReasonNotes();
+            String link = "https://logistic-captain.com/reschedule?orderId=" + order.getOrderId();
+            smsService.sendDeliveryFailedAlert(order, reason, link, "+1234567890");
         }
         if (request.status() == DeliveryStatus.DELIVERED) {
             order.setStatus(DeliveryStatus.DELIVERED);
@@ -94,7 +94,11 @@ public class DeliveryOrderService {
         if (request.status() == DeliveryStatus.OUT_FOR_DELIVERY) {
             smsService.sendDriverNearbyAlert(order, order.getEstimatedArrivalTime() != null ? order.getEstimatedArrivalTime().toString() : "soon");
         }
-        return toResponse(orderRepository.save(order));
+        DeliveryOrder saved = orderRepository.save(order);
+        if (saved.getStatus() == DeliveryStatus.DELIVERED || saved.getStatus() == DeliveryStatus.FAILED) {
+            triggerTwoStopsAwaySmsIfApplicable(saved);
+        }
+        return toResponse(saved);
     }
 
     private void sendCompletionSms(DeliveryOrder order) {
@@ -120,7 +124,9 @@ public class DeliveryOrderService {
         order.setStatus(DeliveryStatus.DELIVERED);
         order.setFailedReasonNotes(null);
         sendCompletionSms(order);
-        return toResponse(orderRepository.save(order));
+        DeliveryOrder saved = orderRepository.save(order);
+        triggerTwoStopsAwaySmsIfApplicable(saved);
+        return toResponse(saved);
     }
 
     @Transactional
@@ -128,9 +134,27 @@ public class DeliveryOrderService {
         DeliveryOrder order = findOrder(orderId);
         order.setStatus(DeliveryStatus.FAILED);
         order.setFailedReasonNotes(reason);
-        String nextDate = LocalDateTime.now().plusDays(1).format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
-        smsService.sendDeliveryFailedAlert(order, nextDate, "+1234567890");
-        return toResponse(orderRepository.save(order));
+        String link = "https://logistic-captain.com/reschedule?orderId=" + order.getOrderId();
+        smsService.sendDeliveryFailedAlert(order, reason, link, "+1234567890");
+        DeliveryOrder saved = orderRepository.save(order);
+        triggerTwoStopsAwaySmsIfApplicable(saved);
+        return toResponse(saved);
+    }
+
+    private void triggerTwoStopsAwaySmsIfApplicable(DeliveryOrder completedOrFailedOrder) {
+        DeliveryRoute route = completedOrFailedOrder.getRoute();
+        if (route == null || completedOrFailedOrder.getSequenceNumber() == null) {
+            return;
+        }
+        int nextSecondSequence = completedOrFailedOrder.getSequenceNumber() + 2;
+        orderRepository.findByRouteAndSequenceNumber(route, nextSecondSequence).ifPresent(nextSecondOrder -> {
+            if (nextSecondOrder.getStatus() == DeliveryStatus.PENDING || nextSecondOrder.getStatus() == DeliveryStatus.ROUTED) {
+                String eta = nextSecondOrder.getEstimatedArrivalTime() != null 
+                        ? nextSecondOrder.getEstimatedArrivalTime().format(java.time.format.DateTimeFormatter.ofPattern("h:mm a")) 
+                        : "soon";
+                smsService.sendDriverNearbyAlert(nextSecondOrder, eta);
+            }
+        });
     }
 
     public DeliveryOrder findOrder(String orderId) {

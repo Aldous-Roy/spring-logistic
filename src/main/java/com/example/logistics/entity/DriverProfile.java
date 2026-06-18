@@ -44,4 +44,17 @@ public class DriverProfile extends AuditableEntity {
 
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
+
+    @Column(name = "is_profile_setup", nullable = false)
+    private boolean profileSetup = false;
+
+    @Column(name = "performance_score", nullable = false)
+    private Integer performanceScore = 100;
+
+    @Column(name = "total_completed_orders", nullable = false)
+    private Long totalCompletedOrders = 0L;
+
+    @Column(name = "total_failed_orders", nullable = false)
+    private Long totalFailedOrders = 0L;
 }
+

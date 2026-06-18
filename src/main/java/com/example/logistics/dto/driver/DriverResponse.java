@@ -14,6 +14,9 @@ public record DriverResponse(
         BigDecimal maxWeightCapacityKg,
         boolean active,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        Boolean editable,
+        Boolean profileSetup,
+        Integer performanceScore
 ) {
 }

@@ -43,11 +43,10 @@ public class SmsNotificationService {
         sendSms(order.getCustomerPhone(), msg);
     }
 
-    public void sendDeliveryFailedAlert(DeliveryOrder order, String nextAttemptDate, String supportPhone) {
-        String date = order.getUpdatedAt().format(DateTimeFormatter.ofPattern("MMM dd, yyyy"));
-        String reason = order.getFailedReasonNotes() != null ? order.getFailedReasonNotes() : "Delivery issue";
-        String msg = String.format("[Virtusa Logistics] We attempted to deliver your package (%s) on %s but were unable to complete delivery. Reason: %s. Next delivery attempt: %s. To reschedule or change address, call: %s",
-                order.getOrderId(), date, reason, nextAttemptDate, supportPhone);
+    public void sendDeliveryFailedAlert(DeliveryOrder order, String reason, String rescheduleLink, String supportPhone) {
+        String shortReason = reason != null && reason.length() > 50 ? reason.substring(0, 47) + "..." : (reason != null ? reason : "Delivery issue");
+        String msg = String.format("[Virtusa Logistics] Delivery failed for order %s. Reason: %s. Please reschedule here: %s. Contact dispatcher: %s",
+                order.getOrderId(), shortReason, rescheduleLink, supportPhone);
         sendSms(order.getCustomerPhone(), msg);
     }
 

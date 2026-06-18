@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface DriverAttendanceRepository extends JpaRepository<DriverAttendance, UUID> {
     Optional<DriverAttendance> findByDriverId(UUID driverId);
+    java.util.List<DriverAttendance> findByActiveTrueOrderByCheckedInAtAsc();
 }

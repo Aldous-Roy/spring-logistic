@@ -7,6 +7,7 @@ import com.example.logistics.dto.driver.AssignedDriverRouteResponse;
 import com.example.logistics.dto.driver.BreakRequest;
 import com.example.logistics.dto.driver.DriverCreateRequest;
 import com.example.logistics.dto.driver.DriverResponse;
+import com.example.logistics.dto.driver.DriverUpdateRequest;
 import com.example.logistics.dto.driver.TodayStopResponse;
 import com.example.logistics.service.DriverService;
 import jakarta.validation.Valid;
@@ -18,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -245,5 +247,17 @@ public class DriverController {
     @PreAuthorize("hasRole('DRIVER')")
     public ResponseEntity<ApiResponse<AttendanceResponse>> toggleBreak(@Valid @RequestBody BreakRequest request) {
         return ResponseEntity.ok(ApiResponse.success(driverService.toggleBreak(request.onBreak()), 200));
+    }
+
+    @GetMapping("/me")
+    @PreAuthorize("hasRole('DRIVER')")
+    public ResponseEntity<ApiResponse<DriverResponse>> getMyProfile() {
+        return ResponseEntity.ok(ApiResponse.success(driverService.getMyProfile(), 200));
+    }
+
+    @PutMapping("/me")
+    @PreAuthorize("hasRole('DRIVER')")
+    public ResponseEntity<ApiResponse<DriverResponse>> updateMyProfile(@Valid @RequestBody DriverUpdateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(driverService.updateMyProfile(request), 200));
     }
 }

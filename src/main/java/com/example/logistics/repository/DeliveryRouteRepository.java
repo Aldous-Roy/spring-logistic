@@ -22,5 +22,9 @@ public interface DeliveryRouteRepository extends JpaRepository<DeliveryRoute, UU
 
     List<DeliveryRoute> findByDriverIdAndRouteDate(UUID driverId, LocalDate routeDate);
 
+    List<DeliveryRoute> findByDriverIdAndStatus(UUID driverId, RouteStatus status);
+
+    List<DeliveryRoute> findByDriverIdIsNullAndRouteDate(LocalDate routeDate);
+
     long countByStatus(RouteStatus status);
 }

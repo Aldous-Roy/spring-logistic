@@ -4,6 +4,7 @@ import com.example.logistics.dto.driver.AssignedDriverRouteResponse;
 import com.example.logistics.dto.driver.AttendanceResponse;
 import com.example.logistics.dto.driver.DriverCreateRequest;
 import com.example.logistics.dto.driver.DriverResponse;
+import com.example.logistics.dto.driver.DriverUpdateRequest;
 import com.example.logistics.dto.driver.TodayStopResponse;
 import com.example.logistics.dto.common.PageResponse;
 import com.example.logistics.entity.DeliveryOrder;
@@ -186,8 +187,73 @@ public class DriverService {
                 driver.getMaxWeightCapacityKg(),
                 driver.isActive(),
                 driver.getCreatedAt(),
-                driver.getUpdatedAt()
+                driver.getUpdatedAt(),
+                null,
+                driver.isProfileSetup(),
+                driver.getPerformanceScore()
         );
+    }
+
+    private DriverResponse toResponse(DriverProfile driver, boolean editable) {
+        return new DriverResponse(
+                driver.getDriverId(),
+                driver.getEmployeeId(),
+                driver.getFirstName(),
+                driver.getLastName(),
+                driver.getPhoneNumber(),
+                driver.getMaxPackageCapacity(),
+                driver.getMaxWeightCapacityKg(),
+                driver.isActive(),
+                driver.getCreatedAt(),
+                driver.getUpdatedAt(),
+                editable,
+                driver.isProfileSetup(),
+                driver.getPerformanceScore()
+        );
+    }
+
+    public DriverResponse getMyProfile() {
+        DriverProfile driver = currentDriver();
+        boolean editable = !hasPendingRoutesToday(driver.getDriverId());
+        return toResponse(driver, editable);
+    }
+
+    public boolean hasPendingRoutesToday(java.util.UUID driverId) {
+        LocalDate today = LocalDate.now();
+        List<DeliveryRoute> routesToday = routeRepository.findByDriverIdAndRouteDate(driverId, today);
+        for (DeliveryRoute route : routesToday) {
+            if (route.getStatus() == RouteStatus.ASSIGNED || route.getStatus() == RouteStatus.IN_PROGRESS) {
+                List<DeliveryOrder> orders = orderRepository.findByRouteOrderBySequenceNumberAscCreatedAtAsc(route);
+                for (DeliveryOrder order : orders) {
+                    if (order.getStatus() == DeliveryStatus.PENDING ||
+                        order.getStatus() == DeliveryStatus.ROUTED ||
+                        order.getStatus() == DeliveryStatus.OUT_FOR_DELIVERY) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    @Transactional
+    public DriverResponse updateMyProfile(DriverUpdateRequest request) {
+        DriverProfile driver = currentDriver();
+        if (hasPendingRoutesToday(driver.getDriverId())) {
+            throw new InvalidOperationException("Cannot edit profile while you have routes allocated for today. Please complete or wait until all today's deliveries are finished before updating your profile.");
+        }
+        driver.setFirstName(request.firstName());
+        driver.setLastName(request.lastName());
+        driver.setPhoneNumber(request.phoneNumber());
+        driver.setProfileSetup(true);
+        if (request.maxPackageCapacity() != null) {
+            driver.setMaxPackageCapacity(request.maxPackageCapacity());
+        }
+        if (request.maxWeightCapacityKg() != null) {
+            driver.setMaxWeightCapacityKg(request.maxWeightCapacityKg());
+        }
+        DriverProfile saved = driverRepository.save(driver);
+        return toResponse(saved, true);
     }
 
     private AttendanceResponse toAttendanceResponse(DriverAttendance attendance) {

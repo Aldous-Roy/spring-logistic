@@ -296,4 +296,10 @@ public class RouteController {
     public ResponseEntity<ApiResponse<PageResponse<StopResponse>>> stops(@PathVariable UUID routeId, Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.success(orderService.listByRoute(routeId, pageable), 200));
     }
+
+    @PostMapping("/auto-allocate")
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public ResponseEntity<ApiResponse<java.util.List<RouteResponse>>> autoAllocate() {
+        return ResponseEntity.ok(ApiResponse.success(routeService.autoAllocateRoutes(), 200));
+    }
 }

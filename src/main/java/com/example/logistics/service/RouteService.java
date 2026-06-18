@@ -16,6 +16,8 @@ import com.example.logistics.exception.ResourceNotFoundException;
 import com.example.logistics.repository.DeliveryOrderRepository;
 import com.example.logistics.repository.DeliveryRouteRepository;
 import com.example.logistics.repository.DriverProfileRepository;
+import com.example.logistics.repository.DriverAttendanceRepository;
+import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -38,6 +40,7 @@ public class RouteService {
     private final DeliveryRouteRepository routeRepository;
     private final DeliveryOrderRepository orderRepository;
     private final DriverProfileRepository driverRepository;
+    private final DriverAttendanceRepository attendanceRepository;
     private final RouteOptimizationService routeOptimizationService;
 
     @Transactional
@@ -190,7 +193,105 @@ public class RouteService {
         }
         route.setStatus(RouteStatus.COMPLETED);
         route.setActualEndAt(LocalDateTime.now());
+        
+        updateDriverPerformanceOnRouteCompletion(route);
+        
         return toResponse(routeRepository.save(route));
+    }
+
+    private void updateDriverPerformanceOnRouteCompletion(DeliveryRoute route) {
+        if (route.getDriverId() == null) {
+            return;
+        }
+        driverRepository.findById(route.getDriverId()).ifPresent(driver -> {
+            List<DeliveryRoute> completedRoutes = routeRepository.findByDriverIdAndStatus(driver.getDriverId(), RouteStatus.COMPLETED);
+            long totalCompletedOrders = 0;
+            long totalFailedOrders = 0;
+            long totalOnTimeOrders = 0;
+            long totalAssignedOrders = 0;
+
+            for (DeliveryRoute completedRoute : completedRoutes) {
+                List<DeliveryOrder> orders = orderRepository.findByRouteOrderBySequenceNumberAscCreatedAtAsc(completedRoute);
+                for (DeliveryOrder order : orders) {
+                    totalAssignedOrders++;
+                    if (order.getStatus() == DeliveryStatus.DELIVERED) {
+                        totalCompletedOrders++;
+                        if (order.getEstimatedArrivalTime() != null && order.getUpdatedAt() != null) {
+                            if (!order.getUpdatedAt().isAfter(order.getEstimatedArrivalTime())) {
+                                totalOnTimeOrders++;
+                            }
+                        } else {
+                            totalOnTimeOrders++;
+                        }
+                    } else if (order.getStatus() == DeliveryStatus.FAILED) {
+                        totalFailedOrders++;
+                    }
+                }
+            }
+
+            double successRate = totalAssignedOrders > 0 ? (double) totalCompletedOrders / totalAssignedOrders : 1.0;
+            double onTimeRate = totalCompletedOrders > 0 ? (double) totalOnTimeOrders / totalCompletedOrders : 1.0;
+
+            double calculatedScore = (successRate * 60.0) + (onTimeRate * 40.0);
+            int finalScore = (int) Math.round(calculatedScore);
+            finalScore = Math.max(0, Math.min(100, finalScore));
+
+            driver.setTotalCompletedOrders(totalCompletedOrders);
+            driver.setTotalFailedOrders(totalFailedOrders);
+            driver.setPerformanceScore(finalScore);
+            driverRepository.save(driver);
+        });
+    }
+
+    @Transactional
+    public List<RouteResponse> autoAllocateRoutes() {
+        LocalDate today = LocalDate.now();
+        List<DeliveryRoute> unassignedRoutes = routeRepository.findByDriverIdIsNullAndRouteDate(today);
+        if (unassignedRoutes.isEmpty()) {
+            return List.of();
+        }
+
+        List<com.example.logistics.entity.DriverAttendance> activeAttendances = attendanceRepository.findByActiveTrueOrderByCheckedInAtAsc();
+        if (activeAttendances.isEmpty()) {
+            return List.of();
+        }
+
+        List<DriverProfile> activeDrivers = new java.util.ArrayList<>();
+        for (com.example.logistics.entity.DriverAttendance att : activeAttendances) {
+            driverRepository.findById(att.getDriverId()).ifPresent(activeDrivers::add);
+        }
+
+        activeDrivers.sort((d1, d2) -> d2.getPerformanceScore().compareTo(d1.getPerformanceScore()));
+
+        List<UUID> assignedDriverIds = routeRepository.findAll().stream()
+                .filter(r -> today.equals(r.getRouteDate()) && r.getDriverId() != null)
+                .map(DeliveryRoute::getDriverId)
+                .toList();
+
+        List<DriverProfile> availableDrivers = activeDrivers.stream()
+                .filter(d -> !assignedDriverIds.contains(d.getDriverId()))
+                .collect(java.util.stream.Collectors.toList());
+
+        List<DeliveryRoute> allocatedRoutes = new java.util.ArrayList<>();
+        List<DeliveryRoute> sortedRoutes = new java.util.ArrayList<>(unassignedRoutes);
+        sortedRoutes.sort((r1, r2) -> r2.getTotalStops().compareTo(r1.getTotalStops()));
+
+        int driverIdx = 0;
+        for (DeliveryRoute route : sortedRoutes) {
+            if (driverIdx >= availableDrivers.size()) {
+                break;
+            }
+            DriverProfile driver = availableDrivers.get(driverIdx);
+            route.setDriverId(driver.getDriverId());
+            route.setAssignedDriverId(driver.getDriverId());
+            if (route.getStatus() == RouteStatus.CREATED) {
+                route.setStatus(RouteStatus.ASSIGNED);
+            }
+            allocatedRoutes.add(routeRepository.save(route));
+            driverIdx++;
+        }
+
+        return allocatedRoutes.stream().map(this::toResponse).toList();
     }
 
     @Transactional

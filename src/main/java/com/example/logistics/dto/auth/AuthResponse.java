@@ -1,6 +1,8 @@
 package com.example.logistics.dto.auth;
 
 import com.example.logistics.entity.enums.UserRole;
+import java.math.BigDecimal;
+import java.util.UUID;
 
 public record AuthResponse(
         String token,
@@ -8,6 +10,13 @@ public record AuthResponse(
         long expiresInMs,
         String employeeId,
         String name,
-        UserRole role
+        UserRole role,
+        UUID driverId,
+        String firstName,
+        String lastName,
+        String phoneNumber,
+        Integer maxPackageCapacity,
+        BigDecimal maxWeightCapacityKg,
+        Boolean profileComplete
 ) {
 }
