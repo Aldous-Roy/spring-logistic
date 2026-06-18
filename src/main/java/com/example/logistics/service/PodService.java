@@ -38,6 +38,15 @@ public class PodService {
         pod.setCustomerSignature(request.customerSignature());
         pod.setUploadedAt(LocalDateTime.now());
         pod.setImageUrl(s3Url);
+        pod.setLatitude(request.latitude());
+        pod.setLongitude(request.longitude());
+        if (request.capturedAt() != null && !request.capturedAt().isBlank()) {
+            try {
+                pod.setCapturedAt(LocalDateTime.parse(request.capturedAt()));
+            } catch (Exception e) {
+                // Ignore parse errors, fallback to uploadedAt if needed
+            }
+        }
         PodRecord saved = podRepository.save(pod);
         
         return new PodUploadResponse(saved.getId(), saved.getDeliveryId(), saved.getImageUrl(), saved.getCustomerSignature(), saved.getUploadedAt());

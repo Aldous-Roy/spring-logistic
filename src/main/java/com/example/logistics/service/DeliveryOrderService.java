@@ -154,10 +154,65 @@ public class DeliveryOrderService {
         order.setStatus(DeliveryStatus.FAILED);
         order.setFailedReasonNotes(reason);
         String link = "https://logistic-captain.com/reschedule?orderId=" + order.getOrderId();
-        smsService.sendDeliveryFailedAlert(order, reason, link, "+1234567890");
+        smsService.sendDeliveryFailedAlert(order, reason, link, order.getCustomerPhone());
         DeliveryOrder saved = orderRepository.save(order);
         triggerTwoStopsAwaySmsIfApplicable(saved);
         return toResponse(saved);
+    }
+
+    @Transactional
+    public StopResponse reassign(String orderId, com.example.logistics.dto.stop.ReassignStopRequest request) {
+        DeliveryOrder order = findOrder(orderId);
+        DeliveryRoute route = routeService.findRoute(request.routeId());
+        order.setRoute(route);
+        order.setSequenceNumber(request.sequenceNumber());
+        // Auto-resequence others if needed could go here, or we trust the drag-and-drop PUT to do it
+        return toResponse(orderRepository.save(order));
+    }
+
+    public PageResponse<StopResponse> getFailedStops(Pageable pageable) {
+        Page<DeliveryOrder> page = orderRepository.findAll(
+                (root, query, cb) -> cb.equal(root.get("status"), DeliveryStatus.FAILED),
+                pageable
+        );
+        return PageResponse.of(page, this::toResponse);
+    }
+
+    public long countTotalStopsToday() {
+        return orderRepository.count((root, query, cb) -> cb.equal(root.get("deliveryDate"), java.time.LocalDate.now()));
+    }
+
+    public long countCompletedStopsToday() {
+        return orderRepository.count((root, query, cb) -> cb.and(
+            cb.equal(root.get("deliveryDate"), java.time.LocalDate.now()),
+            cb.equal(root.get("status"), DeliveryStatus.DELIVERED)
+        ));
+    }
+
+    public long countFailedStopsToday() {
+        return orderRepository.count((root, query, cb) -> cb.and(
+            cb.equal(root.get("deliveryDate"), java.time.LocalDate.now()),
+            cb.equal(root.get("status"), DeliveryStatus.FAILED)
+        ));
+    }
+
+    public long countPendingStopsToday() {
+        return orderRepository.count((root, query, cb) -> cb.and(
+            cb.equal(root.get("deliveryDate"), java.time.LocalDate.now()),
+            cb.notEqual(root.get("status"), DeliveryStatus.DELIVERED),
+            cb.notEqual(root.get("status"), DeliveryStatus.FAILED)
+        ));
+    }
+
+    @Transactional
+    public StopResponse reschedule(String orderId, com.example.logistics.dto.stop.RescheduleStopRequest request) {
+        DeliveryOrder order = findOrder(orderId);
+        order.setDeliveryDate(request.deliveryDate());
+        order.setStatus(DeliveryStatus.PENDING);
+        order.setRoute(null); // Remove from current route
+        order.setSequenceNumber(null);
+        order.setFailedReasonNotes("Rescheduled by customer to " + request.deliveryDate());
+        return toResponse(orderRepository.save(order));
     }
 
     private void triggerTwoStopsAwaySmsIfApplicable(DeliveryOrder completedOrFailedOrder) {
@@ -182,6 +237,15 @@ public class DeliveryOrderService {
     }
 
     private StopResponse toResponse(DeliveryOrder order) {
+        String podUrl = null;
+        if (order.getStatus() == DeliveryStatus.DELIVERED) {
+            podUrl = podRepository.findByDeliveryId(order.getOrderId())
+                .stream()
+                .findFirst()
+                .map(com.example.logistics.entity.PodRecord::getImageUrl)
+                .orElse(null);
+        }
+
         return new StopResponse(
                 order.getOrderId(),
                 order.getRoute() == null ? null : order.getRoute().getRouteCode(),
@@ -202,7 +266,8 @@ public class DeliveryOrderService {
                 order.getEstimatedArrivalTime(),
                 order.getFailedReasonNotes(),
                 order.getCreatedAt(),
-                order.getUpdatedAt()
+                order.getUpdatedAt(),
+                podUrl
         );
     }
 

@@ -209,6 +209,10 @@ public class DriverService {
                 .orElseGet(() -> driverRepository.save(createDriverProfile(currentUser)));
     }
 
+    public long countActiveDrivers() {
+        return driverRepository.countByActiveTrue();
+    }
+
     private DriverProfile createDriverProfile(AppUser user) {
         String[] nameParts = user.getName() == null ? new String[0] : user.getName().trim().split("\\s+", 2);
         String firstName = nameParts.length > 0 && !nameParts[0].isBlank() ? nameParts[0] : "Driver";

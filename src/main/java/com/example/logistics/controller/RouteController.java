@@ -308,4 +308,10 @@ public class RouteController {
     public ResponseEntity<ApiResponse<java.util.List<RouteResponse>>> autoAllocateToday() {
         return ResponseEntity.ok(ApiResponse.success(routeService.autoGroupAndAllocateTodaysOrders(), 200));
     }
+
+    @PutMapping("/{id}/reorder")
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public ResponseEntity<ApiResponse<RouteResponse>> reorder(@PathVariable UUID id, @Valid @RequestBody ResequenceOrdersRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(routeService.resequenceOrders(id, request), 200));
+    }
 }

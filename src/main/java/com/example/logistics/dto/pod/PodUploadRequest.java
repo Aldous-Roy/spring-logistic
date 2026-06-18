@@ -7,6 +7,9 @@ import org.springframework.web.multipart.MultipartFile;
 public record PodUploadRequest(
         @NotBlank String deliveryId,
         @NotNull MultipartFile image,
-        String customerSignature
+        String customerSignature,
+        Double latitude,
+        Double longitude,
+        String capturedAt
 ) {
 }

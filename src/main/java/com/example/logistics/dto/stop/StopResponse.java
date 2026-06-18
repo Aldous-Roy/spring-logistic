@@ -27,6 +27,7 @@ public record StopResponse(
         LocalDateTime estimatedArrivalTime,
         String failedReasonNotes,
         LocalDateTime createdAt,
-        LocalDateTime updatedAt
+        LocalDateTime updatedAt,
+        String podImageUrl
 ) {
 }

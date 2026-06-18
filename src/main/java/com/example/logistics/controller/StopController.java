@@ -172,4 +172,27 @@ public class StopController {
     ) {
         return ResponseEntity.ok(ApiResponse.success(orderService.failDelivery(orderId, request.reason()), 200));
     }
+
+    @PatchMapping("/{orderId}/reassign")
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public ResponseEntity<ApiResponse<StopResponse>> reassign(
+            @PathVariable String orderId,
+            @Valid @RequestBody com.example.logistics.dto.stop.ReassignStopRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(orderService.reassign(orderId, request), 200));
+    }
+
+    @GetMapping("/failed")
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public ResponseEntity<ApiResponse<PageResponse<StopResponse>>> getFailedStops(Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.success(orderService.getFailedStops(pageable), 200));
+    }
+
+    @PostMapping("/{orderId}/reschedule")
+    public ResponseEntity<ApiResponse<StopResponse>> reschedule(
+            @PathVariable String orderId,
+            @Valid @RequestBody com.example.logistics.dto.stop.RescheduleStopRequest request
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(orderService.reschedule(orderId, request), 200));
+    }
 }

@@ -46,4 +46,13 @@ public class PodRecord {
 
     @Column(name = "uploaded_at", nullable = false)
     private LocalDateTime uploadedAt;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    @Column(name = "captured_at")
+    private LocalDateTime capturedAt;
 }
