@@ -75,18 +75,26 @@ public class RouteOptimizationService {
         VehicleRoutingProblem.Builder problemBuilder = VehicleRoutingProblem.Builder.newInstance();
         
         // Register fleet vehicles (Bikes and Vans) to enable Autonomous Split-Grouping
+        com.graphhopper.jsprit.core.problem.vehicle.VehicleTypeImpl bikeType = com.graphhopper.jsprit.core.problem.vehicle.VehicleTypeImpl.Builder.newInstance("bikeType")
+                .addCapacityDimension(0, 15) // Package limit
+                .addCapacityDimension(1, 20) // Weight limit
+                .build();
+
+        com.graphhopper.jsprit.core.problem.vehicle.VehicleTypeImpl vanType = com.graphhopper.jsprit.core.problem.vehicle.VehicleTypeImpl.Builder.newInstance("vanType")
+                .addCapacityDimension(0, 50) // Package limit
+                .addCapacityDimension(1, 300) // Weight limit
+                .build();
+
         for (int i = 1; i <= 5; i++) {
             VehicleImpl bike = VehicleImpl.Builder.newInstance("bike-route-" + i)
-                    .addCapacityDimension(0, 15) // Package limit
-                    .addCapacityDimension(1, 20) // Weight limit
+                    .setType(bikeType)
                     .setStartLocation(Location.newInstance(depot.longitude(), depot.latitude()))
                     .setReturnToDepot(false)
                     .build();
             problemBuilder.addVehicle(bike);
 
             VehicleImpl van = VehicleImpl.Builder.newInstance("van-route-" + i)
-                    .addCapacityDimension(0, 50) // Package limit
-                    .addCapacityDimension(1, 300) // Weight limit
+                    .setType(vanType)
                     .setStartLocation(Location.newInstance(depot.longitude(), depot.latitude()))
                     .setReturnToDepot(false)
                     .build();
