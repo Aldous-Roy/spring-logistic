@@ -180,6 +180,7 @@ public class DeliveryOrderService {
                 order.getLongitude(),
                 order.getTimeWindowStart(),
                 order.getTimeWindowEnd(),
+                order.getDeliveryDate(),
                 order.getPackageWeightKg(),
                 order.getPackageVolumeCbms(),
                 order.getServiceTimeMins(),
