@@ -1,5 +1,6 @@
 package com.example.logistics.dto.driver;
 
+import com.example.logistics.entity.enums.VehicleType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -17,6 +18,7 @@ public record DriverResponse(
         LocalDateTime updatedAt,
         Boolean editable,
         Boolean profileSetup,
-        Integer performanceScore
+        Integer performanceScore,
+        VehicleType vehicleType
 ) {
 }

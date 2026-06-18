@@ -5,6 +5,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import com.example.logistics.entity.enums.VehicleType;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -62,6 +63,10 @@ public class DeliveryRoute extends AuditableEntity {
 
     @Column(name = "estimated_duration_mins", nullable = false)
     private Integer estimatedDurationMins = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "required_vehicle_type", length = 20)
+    private VehicleType requiredVehicleType;
 
     @Column(name = "route_polyline", columnDefinition = "text")
     private String routePolyline;

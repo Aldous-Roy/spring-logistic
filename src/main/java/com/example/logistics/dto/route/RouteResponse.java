@@ -1,6 +1,7 @@
 package com.example.logistics.dto.route;
 
 import com.example.logistics.entity.enums.RouteStatus;
+import com.example.logistics.entity.enums.VehicleType;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -13,6 +14,7 @@ public record RouteResponse(
         LocalDate routeDate,
         RouteStatus status,
         UUID driverId,
+        VehicleType requiredVehicleType,
         BigDecimal totalDistanceKm,
         Integer estimatedDurationMins,
         String routePolyline,

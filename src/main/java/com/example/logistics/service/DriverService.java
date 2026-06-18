@@ -15,6 +15,7 @@ import com.example.logistics.entity.AppUser;
 import com.example.logistics.entity.enums.DeliveryStatus;
 import com.example.logistics.entity.enums.RouteStatus;
 import com.example.logistics.entity.enums.UserRole;
+import com.example.logistics.entity.enums.VehicleType;
 import com.example.logistics.exception.ConflictException;
 import com.example.logistics.exception.InvalidOperationException;
 import com.example.logistics.exception.ResourceNotFoundException;
@@ -53,8 +54,19 @@ public class DriverService {
         driver.setFirstName(request.firstName());
         driver.setLastName(request.lastName());
         driver.setPhoneNumber(request.phoneNumber());
-        driver.setMaxPackageCapacity(request.maxPackageCapacity() == null ? 50 : request.maxPackageCapacity());
-        driver.setMaxWeightCapacityKg(request.maxWeightCapacityKg() == null ? new BigDecimal("300.00") : request.maxWeightCapacityKg());
+        if (request.vehicleType() != null) {
+            driver.setVehicleType(request.vehicleType());
+            if (request.vehicleType() == VehicleType.BIKE) {
+                driver.setMaxPackageCapacity(15);
+                driver.setMaxWeightCapacityKg(new BigDecimal("20.00"));
+            } else {
+                driver.setMaxPackageCapacity(50);
+                driver.setMaxWeightCapacityKg(new BigDecimal("300.00"));
+            }
+        } else {
+            driver.setMaxPackageCapacity(request.maxPackageCapacity() == null ? 50 : request.maxPackageCapacity());
+            driver.setMaxWeightCapacityKg(request.maxWeightCapacityKg() == null ? new BigDecimal("300.00") : request.maxWeightCapacityKg());
+        }
         driver.setActive(false);
         DriverProfile saved = driverRepository.save(driver);
         return toResponse(saved);
@@ -172,6 +184,7 @@ public class DriverService {
         driver.setPhoneNumber("0000000000");
         driver.setMaxPackageCapacity(50);
         driver.setMaxWeightCapacityKg(new BigDecimal("300.00"));
+        driver.setVehicleType(VehicleType.VAN);
         driver.setActive(false);
         return driver;
     }
@@ -190,7 +203,8 @@ public class DriverService {
                 driver.getUpdatedAt(),
                 null,
                 driver.isProfileSetup(),
-                driver.getPerformanceScore()
+                driver.getPerformanceScore(),
+                driver.getVehicleType()
         );
     }
 
@@ -208,7 +222,8 @@ public class DriverService {
                 driver.getUpdatedAt(),
                 editable,
                 driver.isProfileSetup(),
-                driver.getPerformanceScore()
+                driver.getPerformanceScore(),
+                driver.getVehicleType()
         );
     }
 
@@ -246,11 +261,22 @@ public class DriverService {
         driver.setLastName(request.lastName());
         driver.setPhoneNumber(request.phoneNumber());
         driver.setProfileSetup(true);
-        if (request.maxPackageCapacity() != null) {
-            driver.setMaxPackageCapacity(request.maxPackageCapacity());
-        }
-        if (request.maxWeightCapacityKg() != null) {
-            driver.setMaxWeightCapacityKg(request.maxWeightCapacityKg());
+        if (request.vehicleType() != null) {
+            driver.setVehicleType(request.vehicleType());
+            if (request.vehicleType() == VehicleType.BIKE) {
+                driver.setMaxPackageCapacity(15);
+                driver.setMaxWeightCapacityKg(new BigDecimal("20.00"));
+            } else {
+                driver.setMaxPackageCapacity(50);
+                driver.setMaxWeightCapacityKg(new BigDecimal("300.00"));
+            }
+        } else {
+            if (request.maxPackageCapacity() != null) {
+                driver.setMaxPackageCapacity(request.maxPackageCapacity());
+            }
+            if (request.maxWeightCapacityKg() != null) {
+                driver.setMaxWeightCapacityKg(request.maxWeightCapacityKg());
+            }
         }
         DriverProfile saved = driverRepository.save(driver);
         return toResponse(saved, true);

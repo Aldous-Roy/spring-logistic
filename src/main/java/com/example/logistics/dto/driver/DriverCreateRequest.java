@@ -1,8 +1,8 @@
 package com.example.logistics.dto.driver;
 
+import com.example.logistics.entity.enums.VehicleType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-
 import java.math.BigDecimal;
 
 public record DriverCreateRequest(
@@ -11,6 +11,7 @@ public record DriverCreateRequest(
         @NotBlank String phoneNumber,
         Integer maxPackageCapacity,
         BigDecimal maxWeightCapacityKg,
-        @NotNull Boolean active
+        @NotNull Boolean active,
+        VehicleType vehicleType
 ) {
 }

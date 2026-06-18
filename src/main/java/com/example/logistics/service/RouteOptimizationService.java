@@ -10,6 +10,7 @@ import com.graphhopper.jsprit.core.problem.solution.route.activity.TourActivity;
 import com.graphhopper.jsprit.core.problem.vehicle.VehicleImpl;
 import com.graphhopper.jsprit.core.problem.VehicleRoutingProblem;
 
+import com.example.logistics.entity.enums.VehicleType;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -24,30 +25,35 @@ public class RouteOptimizationService {
 
     private static final double AVERAGE_SPEED_KMH = 35.0d;
 
-    public RoutePlan optimize(List<DeliveryOrder> orders) {
+    public List<RoutePlan> optimize(List<DeliveryOrder> orders) {
         if (orders == null || orders.isEmpty()) {
-            return new RoutePlan(List.of(), null, BigDecimal.ZERO, 0);
+            return List.of(new RoutePlan(List.of(), null, BigDecimal.ZERO, 0, null));
         }
 
-        List<DeliveryOrder> ordered = optimizeWithJsprit(orders);
-        if (ordered.isEmpty()) {
-            ordered = fallbackNearestNeighbor(orders);
+        List<GroupedRoute> groupedRoutes = optimizeWithJsprit(orders);
+        if (groupedRoutes.isEmpty()) {
+            groupedRoutes = List.of(new GroupedRoute(null, fallbackNearestNeighbor(orders)));
         }
 
-        List<RoutePoint> points = ordered.stream()
-                .map(order -> new RoutePoint(order.getLatitude().doubleValue(), order.getLongitude().doubleValue()))
-                .toList();
+        List<RoutePlan> plans = new ArrayList<>();
+        for (GroupedRoute grouped : groupedRoutes) {
+            List<DeliveryOrder> ordered = grouped.orders();
+            List<RoutePoint> points = ordered.stream()
+                    .map(order -> new RoutePoint(order.getLatitude().doubleValue(), order.getLongitude().doubleValue()))
+                    .toList();
 
-        String encodedPolyline = PolylineEncoder.encode(points);
-        double distanceKm = calculateDistanceKm(points);
-        int estimatedMinutes = estimateMinutes(distanceKm, ordered);
+            String encodedPolyline = PolylineEncoder.encode(points);
+            double distanceKm = calculateDistanceKm(points);
+            int estimatedMinutes = estimateMinutes(distanceKm, ordered);
 
-        return new RoutePlan(ordered, encodedPolyline, BigDecimal.valueOf(distanceKm).setScale(2, RoundingMode.HALF_UP), estimatedMinutes);
+            plans.add(new RoutePlan(ordered, encodedPolyline, BigDecimal.valueOf(distanceKm).setScale(2, RoundingMode.HALF_UP), estimatedMinutes, grouped.vehicleType()));
+        }
+        return plans;
     }
 
     public RoutePlan summarize(List<DeliveryOrder> orderedOrders) {
         if (orderedOrders == null || orderedOrders.isEmpty()) {
-            return new RoutePlan(List.of(), null, BigDecimal.ZERO, 0);
+            return new RoutePlan(List.of(), null, BigDecimal.ZERO, 0, null);
         }
 
         List<RoutePoint> points = orderedOrders.stream()
@@ -58,23 +64,41 @@ public class RouteOptimizationService {
         double distanceKm = calculateDistanceKm(points);
         int estimatedMinutes = estimateMinutes(distanceKm, orderedOrders);
 
-        return new RoutePlan(orderedOrders, encodedPolyline, BigDecimal.valueOf(distanceKm).setScale(2, RoundingMode.HALF_UP), estimatedMinutes);
+        return new RoutePlan(orderedOrders, encodedPolyline, BigDecimal.valueOf(distanceKm).setScale(2, RoundingMode.HALF_UP), estimatedMinutes, null);
     }
 
-    private List<DeliveryOrder> optimizeWithJsprit(List<DeliveryOrder> orders) {
+    record GroupedRoute(VehicleType vehicleType, List<DeliveryOrder> orders) {}
+
+    private List<GroupedRoute> optimizeWithJsprit(List<DeliveryOrder> orders) {
         RoutePoint depot = centroid(orders);
 
         VehicleRoutingProblem.Builder problemBuilder = VehicleRoutingProblem.Builder.newInstance();
-        VehicleImpl vehicle = VehicleImpl.Builder.newInstance("route-optimizer")
-                .setStartLocation(Location.newInstance(depot.longitude(), depot.latitude()))
-                .setReturnToDepot(false)
-                .build();
-        problemBuilder.addVehicle(vehicle);
+        
+        // Register fleet vehicles (Bikes and Vans) to enable Autonomous Split-Grouping
+        for (int i = 1; i <= 5; i++) {
+            VehicleImpl bike = VehicleImpl.Builder.newInstance("bike-route-" + i)
+                    .addCapacityDimension(0, 15) // Package limit
+                    .addCapacityDimension(1, 20) // Weight limit
+                    .setStartLocation(Location.newInstance(depot.longitude(), depot.latitude()))
+                    .setReturnToDepot(false)
+                    .build();
+            problemBuilder.addVehicle(bike);
+
+            VehicleImpl van = VehicleImpl.Builder.newInstance("van-route-" + i)
+                    .addCapacityDimension(0, 50) // Package limit
+                    .addCapacityDimension(1, 300) // Weight limit
+                    .setStartLocation(Location.newInstance(depot.longitude(), depot.latitude()))
+                    .setReturnToDepot(false)
+                    .build();
+            problemBuilder.addVehicle(van);
+        }
 
         Map<String, DeliveryOrder> ordersById = new LinkedHashMap<>();
         for (DeliveryOrder order : orders) {
             ordersById.put(order.getOrderId(), order);
             com.graphhopper.jsprit.core.problem.job.Service service = com.graphhopper.jsprit.core.problem.job.Service.Builder.newInstance(order.getOrderId())
+                    .addSizeDimension(0, 1) // 1 package
+                    .addSizeDimension(1, order.getPackageWeightKg().intValue()) // weight in kg
                     .setLocation(Location.newInstance(
                             order.getLongitude().doubleValue(),
                             order.getLatitude().doubleValue()))
@@ -92,21 +116,30 @@ public class RouteOptimizationService {
             return List.of();
         }
 
-        VehicleRoute route = best.getRoutes().iterator().next();
-        List<DeliveryOrder> ordered = new ArrayList<>();
-        for (TourActivity activity : route.getActivities()) {
-            if (activity instanceof TourActivity.JobActivity jobActivity) {
-                DeliveryOrder order = ordersById.get(jobActivity.getJob().getId());
-                if (order != null) {
-                    ordered.add(order);
+        List<GroupedRoute> allGroupedRoutes = new ArrayList<>();
+        int totalAssigned = 0;
+        
+        for (VehicleRoute route : best.getRoutes()) {
+            List<DeliveryOrder> ordered = new ArrayList<>();
+            for (TourActivity activity : route.getActivities()) {
+                if (activity instanceof TourActivity.JobActivity jobActivity) {
+                    DeliveryOrder order = ordersById.get(jobActivity.getJob().getId());
+                    if (order != null) {
+                        ordered.add(order);
+                    }
                 }
+            }
+            if (!ordered.isEmpty()) {
+                VehicleType vt = route.getVehicle().getId().startsWith("bike") ? VehicleType.BIKE : VehicleType.VAN;
+                allGroupedRoutes.add(new GroupedRoute(vt, ordered));
+                totalAssigned += ordered.size();
             }
         }
 
-        if (ordered.size() != orders.size()) {
+        if (totalAssigned != orders.size()) {
             return List.of();
         }
-        return ordered;
+        return allGroupedRoutes;
     }
 
     private List<DeliveryOrder> fallbackNearestNeighbor(List<DeliveryOrder> orders) {
@@ -174,7 +207,8 @@ public class RouteOptimizationService {
             List<DeliveryOrder> orderedOrders,
             String routePolyline,
             BigDecimal totalDistanceKm,
-            Integer estimatedDurationMins
+            Integer estimatedDurationMins,
+            VehicleType requiredVehicleType
     ) {
     }
 

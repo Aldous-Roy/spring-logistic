@@ -1,7 +1,10 @@
 package com.example.logistics.entity;
 
+import com.example.logistics.entity.enums.VehicleType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -42,6 +45,10 @@ public class DriverProfile extends AuditableEntity {
     @Column(name = "max_weight_capacity_kg", nullable = false, precision = 6, scale = 2)
     private BigDecimal maxWeightCapacityKg = new BigDecimal("300.00");
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "vehicle_type", nullable = false)
+    private VehicleType vehicleType = VehicleType.VAN;
+
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
@@ -57,4 +64,5 @@ public class DriverProfile extends AuditableEntity {
     @Column(name = "total_failed_orders", nullable = false)
     private Long totalFailedOrders = 0L;
 }
+
 

@@ -99,26 +99,65 @@ public class RouteService {
             throw new ResourceNotFoundException("One or more delivery orders were not found");
         }
 
-        RouteOptimizationService.RoutePlan routePlan = routeOptimizationService.optimize(orders);
-        List<DeliveryOrder> orderedOrders = routePlan.orderedOrders().isEmpty() ? orders : routePlan.orderedOrders();
+        List<RouteOptimizationService.RoutePlan> routePlans = routeOptimizationService.optimize(orders);
 
+        if (routePlans.isEmpty() || routePlans.get(0).orderedOrders().isEmpty()) {
+            // Fallback if optimization fails
+            int sequence = 1;
+            for (DeliveryOrder order : orders) {
+                order.setRoute(route);
+                order.setSequenceNumber(sequence++);
+                order.setStatus(DeliveryStatus.ROUTED);
+            }
+            route.setTotalStops(orders.size());
+            route.setCompletedStops(0);
+            if (route.getStatus() == RouteStatus.CREATED) {
+                route.setStatus(RouteStatus.ASSIGNED);
+            }
+            orderRepository.saveAll(orders);
+            routeRepository.save(route);
+            return toResponse(route);
+        }
+
+        // Apply the first RoutePlan to the existing route
+        RouteOptimizationService.RoutePlan primaryPlan = routePlans.get(0);
+        applyPlanToRoute(route, primaryPlan);
+
+        // For any additional split routes, create new DeliveryRoute entities automatically
+        for (int i = 1; i < routePlans.size(); i++) {
+            RouteOptimizationService.RoutePlan extraPlan = routePlans.get(i);
+            
+            DeliveryRoute newRoute = new DeliveryRoute();
+            newRoute.setRouteUuid(UUID.randomUUID());
+            newRoute.setRouteCode(route.getRouteCode() + "-SPLIT-" + i);
+            newRoute.setRouteDate(route.getRouteDate());
+            newRoute.setStatus(RouteStatus.CREATED);
+            routeRepository.save(newRoute);
+            
+            applyPlanToRoute(newRoute, extraPlan);
+        }
+
+        return toResponse(route);
+    }
+
+    private void applyPlanToRoute(DeliveryRoute route, RouteOptimizationService.RoutePlan plan) {
         int sequence = 1;
-        for (DeliveryOrder order : orderedOrders) {
+        for (DeliveryOrder order : plan.orderedOrders()) {
             order.setRoute(route);
             order.setSequenceNumber(sequence++);
             order.setStatus(DeliveryStatus.ROUTED);
         }
-        route.setTotalStops(orderedOrders.size());
+        route.setTotalStops(plan.orderedOrders().size());
         route.setCompletedStops(0);
-        route.setRoutePolyline(routePlan.routePolyline());
-        route.setTotalDistanceKm(routePlan.totalDistanceKm());
-        route.setEstimatedDurationMins(routePlan.estimatedDurationMins());
+        route.setRequiredVehicleType(plan.requiredVehicleType());
+        route.setRoutePolyline(plan.routePolyline());
+        route.setTotalDistanceKm(plan.totalDistanceKm());
+        route.setEstimatedDurationMins(plan.estimatedDurationMins());
         if (route.getStatus() == RouteStatus.CREATED) {
             route.setStatus(RouteStatus.ASSIGNED);
         }
-        orderRepository.saveAll(orderedOrders);
+        orderRepository.saveAll(plan.orderedOrders());
         routeRepository.save(route);
-        return toResponse(route);
     }
 
     @Transactional
@@ -276,19 +315,26 @@ public class RouteService {
         List<DeliveryRoute> sortedRoutes = new java.util.ArrayList<>(unassignedRoutes);
         sortedRoutes.sort((r1, r2) -> r2.getTotalStops().compareTo(r1.getTotalStops()));
 
-        int driverIdx = 0;
         for (DeliveryRoute route : sortedRoutes) {
-            if (driverIdx >= availableDrivers.size()) {
-                break;
+            DriverProfile matchedDriver = null;
+            for (int i = 0; i < availableDrivers.size(); i++) {
+                DriverProfile d = availableDrivers.get(i);
+                // Match required vehicle type if it's set by Jsprit
+                if (route.getRequiredVehicleType() == null || route.getRequiredVehicleType() == d.getVehicleType()) {
+                    matchedDriver = d;
+                    availableDrivers.remove(i);
+                    break;
+                }
             }
-            DriverProfile driver = availableDrivers.get(driverIdx);
-            route.setDriverId(driver.getDriverId());
-            route.setAssignedDriverId(driver.getDriverId());
-            if (route.getStatus() == RouteStatus.CREATED) {
-                route.setStatus(RouteStatus.ASSIGNED);
+
+            if (matchedDriver != null) {
+                route.setDriverId(matchedDriver.getDriverId());
+                route.setAssignedDriverId(matchedDriver.getDriverId());
+                if (route.getStatus() == RouteStatus.CREATED) {
+                    route.setStatus(RouteStatus.ASSIGNED);
+                }
+                allocatedRoutes.add(routeRepository.save(route));
             }
-            allocatedRoutes.add(routeRepository.save(route));
-            driverIdx++;
         }
 
         return allocatedRoutes.stream().map(this::toResponse).toList();
@@ -323,6 +369,7 @@ public class RouteService {
                 route.getRouteDate(),
                 route.getStatus(),
                 route.getDriverId(),
+                route.getRequiredVehicleType(),
                 route.getTotalDistanceKm(),
                 route.getEstimatedDurationMins(),
                 route.getRoutePolyline(),
