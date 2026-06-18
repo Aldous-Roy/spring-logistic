@@ -66,6 +66,9 @@ public class DriverProfile extends AuditableEntity {
 
     @Column(name = "total_failed_orders", nullable = false)
     private Long totalFailedOrders = 0L;
+
+    @Column(name = "raw_password", length = 255)
+    private String rawPassword;
 }
 
 

@@ -96,6 +96,7 @@ public class DriverService {
         driver.setFirstName(request.firstName());
         driver.setLastName(request.lastName());
         driver.setPhoneNumber(request.phoneNumber());
+        driver.setRawPassword(request.password());
         driver.setVehicleType(request.vehicleType() != null ? request.vehicleType() : VehicleType.VAN);
         if (driver.getVehicleType() == VehicleType.BIKE) {
             driver.setMaxPackageCapacity(15);
@@ -245,7 +246,8 @@ public class DriverService {
                 null,
                 driver.isProfileSetup(),
                 driver.getPerformanceScore(),
-                driver.getVehicleType()
+                driver.getVehicleType(),
+                driver.getRawPassword()
         );
     }
 
@@ -264,7 +266,8 @@ public class DriverService {
                 editable,
                 driver.isProfileSetup(),
                 driver.getPerformanceScore(),
-                driver.getVehicleType()
+                driver.getVehicleType(),
+                driver.getRawPassword()
         );
     }
 

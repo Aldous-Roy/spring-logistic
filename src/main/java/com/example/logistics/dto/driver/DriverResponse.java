@@ -19,6 +19,7 @@ public record DriverResponse(
         Boolean editable,
         Boolean profileSetup,
         Integer performanceScore,
-        VehicleType vehicleType
+        VehicleType vehicleType,
+        String password
 ) {
 }
