@@ -40,5 +40,5 @@ public class AppUser extends AuditableEntity {
     private UserRole role;
 //by default it should be false change once it gets active-->
     @Column(name = "active", nullable = false)
-    private boolean active = true;
+    private boolean active = false;
 }

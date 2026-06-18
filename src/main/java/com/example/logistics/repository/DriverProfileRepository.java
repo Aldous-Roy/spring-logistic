@@ -4,6 +4,8 @@ import com.example.logistics.entity.DriverProfile;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -18,11 +20,18 @@ public interface DriverProfileRepository extends JpaRepository<DriverProfile, UU
 
     boolean existsByEmployeeId(String employeeId);
 
-    Page<DriverProfile> findByEmployeeIdContainingIgnoreCaseOrFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrPhoneNumberContainingIgnoreCase(
-            String employeeId,
-            String firstName,
-            String lastName,
-            String phoneNumber,
-            Pageable pageable
-    );
+    @Query("""
+            select d
+            from DriverProfile d
+            where (:dispatcherId is null or d.dispatcherId = :dispatcherId)
+              and (
+               :search is null
+               or :search = ''
+               or lower(d.employeeId) like lower(concat('%', :search, '%'))
+               or lower(d.firstName) like lower(concat('%', :search, '%'))
+               or lower(d.lastName) like lower(concat('%', :search, '%'))
+               or lower(d.phoneNumber) like lower(concat('%', :search, '%'))
+              )
+            """)
+    Page<DriverProfile> search(@Param("search") String search, @Param("dispatcherId") String dispatcherId, Pageable pageable);
 }

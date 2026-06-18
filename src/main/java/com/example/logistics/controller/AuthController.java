@@ -5,6 +5,8 @@ import com.example.logistics.dto.auth.LoginRequest;
 import com.example.logistics.dto.auth.SignupRequest;
 import com.example.logistics.dto.common.ApiResponse;
 import com.example.logistics.service.AuthService;
+import com.example.logistics.security.CurrentUserFacade;
+import org.springframework.security.access.prepost.PreAuthorize;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final AuthService authService;
+    private final CurrentUserFacade currentUserFacade;
 
     /**
      * API: POST /api/auth/signup
@@ -73,5 +76,12 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(ApiResponse.success(authService.login(request), 200));
+    }
+
+    @PostMapping("/logout")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<String>> logout() {
+        authService.logout(currentUserFacade.currentUser());
+        return ResponseEntity.ok(ApiResponse.success("Logged out successfully", 200));
     }
 }

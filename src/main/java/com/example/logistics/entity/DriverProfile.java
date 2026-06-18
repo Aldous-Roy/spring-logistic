@@ -30,6 +30,9 @@ public class DriverProfile extends AuditableEntity {
     @Column(name = "employee_id", nullable = false, unique = true, length = 100)
     private String employeeId;
 
+    @Column(name = "dispatcher_id", length = 100)
+    private String dispatcherId;
+
     @Column(name = "first_name", nullable = false, length = 120)
     private String firstName;
 

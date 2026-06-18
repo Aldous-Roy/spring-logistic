@@ -29,13 +29,16 @@ public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, St
             select o
             from DeliveryOrder o
             left join o.route r
-            where :search is null
+            where (:dispatcherId is null or o.dispatcherId = :dispatcherId)
+              and (
+               :search is null
                or :search = ''
                or lower(o.orderId) like lower(concat('%', :search, '%'))
                or lower(o.customerName) like lower(concat('%', :search, '%'))
                or lower(o.customerPhone) like lower(concat('%', :search, '%'))
                or lower(o.deliveryAddress) like lower(concat('%', :search, '%'))
                or lower(r.routeCode) like lower(concat('%', :search, '%'))
+              )
             """)
-    Page<DeliveryOrder> search(@Param("search") String search, Pageable pageable);
+    Page<DeliveryOrder> search(@Param("search") String search, @Param("dispatcherId") String dispatcherId, Pageable pageable);
 }

@@ -82,6 +82,10 @@ public class AuthService {
         }
         AppUser user = userRepository.findByEmployeeId(request.employeeId())
                 .orElseThrow(() -> new InvalidCredentialsException("Invalid employee ID or password"));
+        
+        user.setActive(true);
+        userRepository.save(user);
+
         String token = jwtService.generateToken(new CustomUserDetails(user));
 
         UUID driverId = null;
@@ -134,5 +138,11 @@ public class AuthService {
         currentUser.setPassword(encoder.encode(request.newPassword()));
         AppUser saved = userRepository.save(currentUser);
         return new UserResponse(saved.getId(), saved.getEmployeeId(), saved.getName(), saved.getRole(), saved.isActive());
+    }
+
+    @Transactional
+    public void logout(AppUser currentUser) {
+        currentUser.setActive(false);
+        userRepository.save(currentUser);
     }
 }

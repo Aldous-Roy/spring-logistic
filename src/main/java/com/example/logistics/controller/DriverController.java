@@ -68,6 +68,12 @@ public class DriverController {
         return ResponseEntity.ok(ApiResponse.success(driverService.upsertDriver(request), 200));
     }
 
+    @PostMapping("/register")
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public ResponseEntity<ApiResponse<DriverResponse>> registerDriver(@Valid @RequestBody DriverCreateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(driverService.registerDriver(request), 200));
+    }
+
     /**
      * API: GET /api/drivers
      * Method: list

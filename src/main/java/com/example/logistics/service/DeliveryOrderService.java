@@ -19,10 +19,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
+
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import com.example.logistics.security.CustomUserDetails;
+import com.example.logistics.entity.enums.UserRole;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,6 +37,16 @@ public class DeliveryOrderService {
     private final RouteService routeService;
     private final SmsNotificationService smsService;
     private final PodRecordRepository podRepository;
+
+    private String getCurrentDispatcherId() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof CustomUserDetails userDetails) {
+            if (userDetails.getUser().getRole() == UserRole.DISPATCHER) {
+                return userDetails.getUsername();
+            }
+        }
+        return null;
+    }
 
     @Transactional
     public StopResponse create(CreateStopRequest request) {
@@ -61,6 +74,7 @@ public class DeliveryOrderService {
         order.setServiceTimeMins(request.serviceTimeMins() == null ? 3 : request.serviceTimeMins());
         order.setRequiredPodType(request.requiredPodType() == null ? PodRequirement.PHOTO_REQUIRED : request.requiredPodType());
         order.setStatus(DeliveryStatus.PENDING);
+        order.setDispatcherId(getCurrentDispatcherId());
         return toResponse(orderRepository.save(order));
     }
 
@@ -72,8 +86,7 @@ public class DeliveryOrderService {
     }
 
     public PageResponse<StopResponse> list(Pageable pageable, String search) {
-        Pageable mappedPageable = mapStopSort(pageable);
-        Page<DeliveryOrder> page = orderRepository.search(StringUtils.hasText(search) ? search : null, mappedPageable);
+        Page<DeliveryOrder> page = orderRepository.search(search, getCurrentDispatcherId(), mapStopSort(pageable));
         return PageResponse.from(page.map(this::toResponse));
     }
 

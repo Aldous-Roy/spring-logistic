@@ -19,6 +19,8 @@ import com.example.logistics.entity.enums.VehicleType;
 import com.example.logistics.exception.ConflictException;
 import com.example.logistics.exception.InvalidOperationException;
 import com.example.logistics.exception.ResourceNotFoundException;
+import com.example.logistics.repository.AppUserRepository;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.example.logistics.repository.DeliveryOrderRepository;
 import com.example.logistics.repository.DeliveryRouteRepository;
 import com.example.logistics.repository.DriverAttendanceRepository;
@@ -29,7 +31,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -46,6 +47,8 @@ public class DriverService {
     private final DriverAttendanceRepository attendanceRepository;
     private final CurrentUserFacade currentUserFacade;
     private final EmployeeIdGenerator employeeIdGenerator;
+    private final AppUserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Transactional
     public DriverResponse upsertDriver(DriverCreateRequest request) {
@@ -72,11 +75,45 @@ public class DriverService {
         return toResponse(saved);
     }
 
+    @Transactional
+    public DriverResponse registerDriver(DriverCreateRequest request) {
+        AppUser dispatcher = currentUserFacade.currentUser();
+        
+        // 1. Create AppUser
+        String empId = employeeIdGenerator.generate();
+        AppUser driverUser = new AppUser();
+        driverUser.setEmployeeId(empId);
+        driverUser.setName(request.firstName() + " " + request.lastName());
+        driverUser.setPassword(passwordEncoder.encode(request.password()));
+        driverUser.setRole(UserRole.DRIVER);
+        driverUser.setActive(true);
+        userRepository.save(driverUser);
+
+        // 2. Create DriverProfile
+        DriverProfile driver = new DriverProfile();
+        driver.setEmployeeId(empId);
+        driver.setDispatcherId(dispatcher.getEmployeeId());
+        driver.setFirstName(request.firstName());
+        driver.setLastName(request.lastName());
+        driver.setPhoneNumber(request.phoneNumber());
+        driver.setVehicleType(request.vehicleType() != null ? request.vehicleType() : VehicleType.VAN);
+        if (driver.getVehicleType() == VehicleType.BIKE) {
+            driver.setMaxPackageCapacity(15);
+            driver.setMaxWeightCapacityKg(new BigDecimal("20.00"));
+        } else {
+            driver.setMaxPackageCapacity(50);
+            driver.setMaxWeightCapacityKg(new BigDecimal("300.00"));
+        }
+        driver.setActive(false);
+        DriverProfile saved = driverRepository.save(driver);
+        return toResponse(saved);
+    }
+
     public PageResponse<DriverResponse> listDrivers(Pageable pageable, String search) {
-        Page<DriverProfile> page = StringUtils.hasText(search)
-                ? driverRepository.findByEmployeeIdContainingIgnoreCaseOrFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCaseOrPhoneNumberContainingIgnoreCase(
-                        search, search, search, search, pageable)
-                : driverRepository.findAll(pageable);
+        AppUser currentUser = currentUserFacade.currentUser();
+        String dispatcherId = currentUser.getRole() == UserRole.DISPATCHER ? currentUser.getEmployeeId() : null;
+        
+        Page<DriverProfile> page = driverRepository.search(search, dispatcherId, pageable);
         return PageResponse.from(page.map(this::toResponse));
     }
 

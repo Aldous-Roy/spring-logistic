@@ -32,6 +32,9 @@ public class DeliveryOrder extends AuditableEntity {
     @Column(name = "order_id", nullable = false, length = 50)
     private String orderId;
 
+    @Column(name = "dispatcher_id", length = 100)
+    private String dispatcherId;
+
     @ManyToOne
     @JoinColumn(name = "route_id")
     private DeliveryRoute route;

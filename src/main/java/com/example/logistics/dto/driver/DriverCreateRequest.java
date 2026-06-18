@@ -9,6 +9,7 @@ public record DriverCreateRequest(
         @NotBlank String firstName,
         @NotBlank String lastName,
         @NotBlank String phoneNumber,
+        @NotBlank String password,
         Integer maxPackageCapacity,
         BigDecimal maxWeightCapacityKg,
         @NotNull Boolean active,
