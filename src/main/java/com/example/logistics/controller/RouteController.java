@@ -302,4 +302,10 @@ public class RouteController {
     public ResponseEntity<ApiResponse<java.util.List<RouteResponse>>> autoAllocate() {
         return ResponseEntity.ok(ApiResponse.success(routeService.autoAllocateRoutes(), 200));
     }
+
+    @PostMapping("/auto-allocate-today")
+    @PreAuthorize("hasRole('DISPATCHER')")
+    public ResponseEntity<ApiResponse<java.util.List<RouteResponse>>> autoAllocateToday() {
+        return ResponseEntity.ok(ApiResponse.success(routeService.autoGroupAndAllocateTodaysOrders(), 200));
+    }
 }

@@ -15,6 +15,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -58,6 +59,9 @@ public class DeliveryOrder extends AuditableEntity {
 
     @Column(name = "time_window_end")
     private LocalDateTime timeWindowEnd;
+
+    @Column(name = "delivery_date", nullable = false)
+    private LocalDate deliveryDate = LocalDate.now();
 
     @Column(name = "package_weight_kg", nullable = false, precision = 5, scale = 2)
     private BigDecimal packageWeightKg = new BigDecimal("1.00");

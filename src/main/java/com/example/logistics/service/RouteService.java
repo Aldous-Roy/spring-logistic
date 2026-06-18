@@ -341,6 +341,36 @@ public class RouteService {
     }
 
     @Transactional
+    public List<RouteResponse> autoGroupAndAllocateTodaysOrders() {
+        LocalDate today = LocalDate.now();
+        List<DeliveryOrder> pendingOrders = orderRepository.findByDeliveryDateAndStatus(today, DeliveryStatus.PENDING);
+        if (pendingOrders.isEmpty()) {
+            return List.of();
+        }
+
+        List<RouteOptimizationService.RoutePlan> routePlans = routeOptimizationService.optimize(pendingOrders);
+        List<DeliveryRoute> createdRoutes = new java.util.ArrayList<>();
+
+        int i = 1;
+        for (RouteOptimizationService.RoutePlan plan : routePlans) {
+            if (plan.orderedOrders().isEmpty()) continue;
+
+            DeliveryRoute newRoute = new DeliveryRoute();
+            newRoute.setRouteUuid(UUID.randomUUID());
+            newRoute.setRouteCode("AUTO-" + today.toString().replace("-", "") + "-" + i);
+            newRoute.setRouteDate(today);
+            newRoute.setStatus(RouteStatus.CREATED);
+            routeRepository.save(newRoute);
+
+            applyPlanToRoute(newRoute, plan);
+            createdRoutes.add(newRoute);
+            i++;
+        }
+
+        return createdRoutes.stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
     public RouteResponse cancel(UUID routeId) {
         DeliveryRoute route = findRoute(routeId);
         if (route.getStatus() == RouteStatus.COMPLETED) {

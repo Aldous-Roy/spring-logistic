@@ -4,6 +4,7 @@ import com.example.logistics.entity.enums.DeliveryStatus;
 import com.example.logistics.entity.enums.PodRequirement;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record StopResponse(
@@ -17,6 +18,7 @@ public record StopResponse(
         BigDecimal longitude,
         LocalDateTime timeWindowStart,
         LocalDateTime timeWindowEnd,
+        LocalDate deliveryDate,
         BigDecimal packageWeightKg,
         BigDecimal packageVolumeCbms,
         Integer serviceTimeMins,

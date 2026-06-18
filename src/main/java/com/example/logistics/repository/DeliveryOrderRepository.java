@@ -23,6 +23,8 @@ public interface DeliveryOrderRepository extends JpaRepository<DeliveryOrder, St
 
     long countByRoute_RouteDate(LocalDate routeDate);
 
+    List<DeliveryOrder> findByDeliveryDateAndStatus(LocalDate deliveryDate, DeliveryStatus status);
+
     @Query("""
             select o
             from DeliveryOrder o

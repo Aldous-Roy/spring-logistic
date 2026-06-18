@@ -37,6 +37,11 @@ public class DeliveryOrderService {
 
     @Transactional
     public StopResponse create(CreateStopRequest request) {
+        BigDecimal weight = request.packageWeightKg() == null ? new BigDecimal("1.00") : request.packageWeightKg();
+        if (weight.compareTo(new BigDecimal("300.00")) > 0) {
+            throw new InvalidOperationException("Package weight cannot exceed 300kg. Order is unroutable.");
+        }
+
         DeliveryOrder order = new DeliveryOrder();
         order.setOrderId(request.orderId());
         if (request.routeCode() != null && !request.routeCode().isBlank()) {
@@ -50,7 +55,8 @@ public class DeliveryOrderService {
         order.setLongitude(request.longitude());
         order.setTimeWindowStart(request.timeWindowStart());
         order.setTimeWindowEnd(request.timeWindowEnd());
-        order.setPackageWeightKg(request.packageWeightKg() == null ? new BigDecimal("1.00") : request.packageWeightKg());
+        order.setDeliveryDate(request.deliveryDate() != null ? request.deliveryDate() : java.time.LocalDate.now());
+        order.setPackageWeightKg(weight);
         order.setPackageVolumeCbms(request.packageVolumeCbms() == null ? new BigDecimal("0.010") : request.packageVolumeCbms());
         order.setServiceTimeMins(request.serviceTimeMins() == null ? 3 : request.serviceTimeMins());
         order.setRequiredPodType(request.requiredPodType() == null ? PodRequirement.PHOTO_REQUIRED : request.requiredPodType());

@@ -32,7 +32,8 @@ public class RouteOptimizationService {
 
         List<GroupedRoute> groupedRoutes = optimizeWithJsprit(orders);
         if (groupedRoutes.isEmpty()) {
-            groupedRoutes = List.of(new GroupedRoute(null, fallbackNearestNeighbor(orders)));
+            // fallbackNearestNeighbor is disabled because weight limits strictly prevent unroutable jobs
+            // groupedRoutes = List.of(new GroupedRoute(null, fallbackNearestNeighbor(orders)));
         }
 
         List<RoutePlan> plans = new ArrayList<>();
