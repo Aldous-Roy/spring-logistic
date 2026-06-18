@@ -8,6 +8,8 @@ public record AttendanceResponse(
         UUID driverId,
         LocalDateTime checkedInAt,
         LocalDateTime checkedOutAt,
-        boolean active
+        boolean active,
+        boolean onBreak,
+        LocalDateTime breakStartedAt
 ) {
 }

@@ -8,8 +8,9 @@ import com.example.logistics.repository.PodRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -20,25 +21,28 @@ public class PodService {
 
     private final PodRecordRepository podRepository;
     private final DeliveryOrderService deliveryOrderService;
+    private final FileStorageService fileStorageService;
 
     @Transactional
     public PodUploadResponse upload(PodUploadRequest request) {
         deliveryOrderService.findOrder(request.deliveryId());
 
+        String s3Url = fileStorageService.storePodImage(request.image());
+
         PodRecord pod = new PodRecord();
         pod.setDeliveryId(request.deliveryId());
+        // Since we're using S3, we might not need to save the bytes to the DB.
+        // However, to avoid breaking existing DB schemas right away, we can still save it
+        // or just leave imageData null if we modify the schema. For now, we'll keep saving
+        // the bytes in the DB for backward compatibility, but in a real migration we'd drop it.
         pod.setImageData(readImageBytes(request.image()));
         pod.setContentType(resolveContentType(request.image()));
         pod.setOriginalFilename(request.image().getOriginalFilename());
         pod.setCustomerSignature(request.customerSignature());
         pod.setUploadedAt(LocalDateTime.now());
+        pod.setImageUrl(s3Url);
         PodRecord saved = podRepository.save(pod);
-        String imageUrl = ServletUriComponentsBuilder.fromCurrentContextPath()
-                .path("/api/files/pods/")
-                .path(saved.getId().toString())
-                .toUriString();
-        saved.setImageUrl(imageUrl);
-        podRepository.save(saved);
+        
         return new PodUploadResponse(saved.getId(), saved.getDeliveryId(), saved.getImageUrl(), saved.getCustomerSignature(), saved.getUploadedAt());
     }
 

@@ -23,4 +23,3 @@ COPY --from=build /app/app.jar /app/app.jar
 USER appuser
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]
-Y

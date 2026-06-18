@@ -35,4 +35,10 @@ public class DriverAttendance {
 
     @Column(name = "active", nullable = false)
     private boolean active;
+
+    @Column(name = "on_break", nullable = false)
+    private boolean onBreak = false;
+
+    @Column(name = "break_started_at")
+    private LocalDateTime breakStartedAt;
 }

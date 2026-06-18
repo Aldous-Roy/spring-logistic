@@ -5,5 +5,7 @@ public enum DeliveryStatus {
     ROUTED,
     OUT_FOR_DELIVERY,
     DELIVERED,
-    FAILED
+    FAILED,
+    ATTEMPTED_NO_ACCESS,
+    ATTEMPTED_ABSENT
 }

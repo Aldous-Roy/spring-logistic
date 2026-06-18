@@ -4,6 +4,7 @@ import com.example.logistics.dto.common.ApiResponse;
 import com.example.logistics.dto.common.PageResponse;
 import com.example.logistics.dto.driver.AttendanceResponse;
 import com.example.logistics.dto.driver.AssignedDriverRouteResponse;
+import com.example.logistics.dto.driver.BreakRequest;
 import com.example.logistics.dto.driver.DriverCreateRequest;
 import com.example.logistics.dto.driver.DriverResponse;
 import com.example.logistics.dto.driver.TodayStopResponse;
@@ -218,5 +219,31 @@ public class DriverController {
     @PreAuthorize("hasRole('DRIVER')")
     public ResponseEntity<ApiResponse<List<TodayStopResponse>>> todayStops() {
         return ResponseEntity.ok(ApiResponse.success(driverService.todaysStops(), 200));
+    }
+
+    /**
+     * API: POST /api/drivers/break
+     * Method: toggleBreak
+     * Postman Request:
+     * {
+     *   "onBreak": true
+     * }
+     * Postman Response:
+     * {
+     *   "status": "success",
+     *   "statusCode": 200,
+     *   "data": {
+     *     "id": "c8d6c1f0-2f0d-4af2-9f2b-3ad43bb2ef15",
+     *     "driverId": "0d8f9f2c-3d91-4c8d-9f55-1a7c8a7d2b21",
+     *     "active": true,
+     *     "onBreak": true,
+     *     "breakStartedAt": "2026-06-18T12:30:00"
+     *   }
+     * }
+     */
+    @PostMapping("/break")
+    @PreAuthorize("hasRole('DRIVER')")
+    public ResponseEntity<ApiResponse<AttendanceResponse>> toggleBreak(@Valid @RequestBody BreakRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(driverService.toggleBreak(request.onBreak()), 200));
     }
 }

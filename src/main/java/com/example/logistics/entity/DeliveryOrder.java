@@ -1,6 +1,7 @@
 package com.example.logistics.entity;
 
 import com.example.logistics.entity.enums.DeliveryStatus;
+import com.example.logistics.entity.enums.DeliveryPriority;
 import com.example.logistics.entity.enums.PodRequirement;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -77,6 +78,10 @@ public class DeliveryOrder extends AuditableEntity {
 
     @Column(name = "estimated_arrival_time")
     private LocalDateTime estimatedArrivalTime;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "priority", nullable = false, length = 20)
+    private DeliveryPriority priority = DeliveryPriority.NORMAL;
 
     @Column(name = "failed_reason_notes", columnDefinition = "text")
     private String failedReasonNotes;

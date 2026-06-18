@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -69,5 +70,19 @@ public class TrackingController {
     @PreAuthorize("hasAnyRole('DRIVER','DISPATCHER')")
     public ResponseEntity<ApiResponse<DriverLocationResponse>> latest(@PathVariable UUID driverId) {
         return ResponseEntity.ok(ApiResponse.success(trackingService.latest(driverId), 200));
+    }
+
+    /**
+     * API: POST /api/tracking/locations/bulk
+     * Method: bulkUpdate
+     * Accepts a batch of location updates from the Android SyncWorker
+     * when the driver has been offline for > 2 minutes.
+     */
+    @PostMapping("/locations/bulk")
+    @PreAuthorize("hasRole('DRIVER')")
+    public ResponseEntity<ApiResponse<List<DriverLocationResponse>>> bulkUpdate(
+            @Valid @RequestBody List<DriverLocationUpsertRequest> requests
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(trackingService.bulkUpsert(requests), 200));
     }
 }

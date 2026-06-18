@@ -108,6 +108,19 @@ public class DriverService {
                 .orElseThrow(() -> new ResourceNotFoundException("Attendance not found for current driver"));
     }
 
+    @Transactional
+    public AttendanceResponse toggleBreak(boolean onBreak) {
+        DriverProfile driver = currentDriver();
+        DriverAttendance attendance = attendanceRepository.findByDriverId(driver.getDriverId())
+                .orElseThrow(() -> new InvalidOperationException("Driver has not checked in"));
+        if (!attendance.isActive()) {
+            throw new InvalidOperationException("Cannot toggle break when not on active shift");
+        }
+        attendance.setOnBreak(onBreak);
+        attendance.setBreakStartedAt(onBreak ? LocalDateTime.now() : null);
+        return toAttendanceResponse(attendanceRepository.save(attendance));
+    }
+
     public List<AssignedDriverRouteResponse> assignedRoutes() {
         DriverProfile driver = currentDriver();
         return routeRepository.findByDriverIdOrderByRouteDateAscCreatedAtAsc(driver.getDriverId()).stream()
@@ -183,7 +196,9 @@ public class DriverService {
                 attendance.getDriverId(),
                 attendance.getCheckedInAt(),
                 attendance.getCheckedOutAt(),
-                attendance.isActive()
+                attendance.isActive(),
+                attendance.isOnBreak(),
+                attendance.getBreakStartedAt()
         );
     }
 }

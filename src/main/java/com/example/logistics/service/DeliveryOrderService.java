@@ -11,6 +11,7 @@ import com.example.logistics.entity.enums.PodRequirement;
 import com.example.logistics.exception.InvalidOperationException;
 import com.example.logistics.exception.ResourceNotFoundException;
 import com.example.logistics.repository.DeliveryOrderRepository;
+import com.example.logistics.repository.PodRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -31,6 +32,8 @@ public class DeliveryOrderService {
 
     private final DeliveryOrderRepository orderRepository;
     private final RouteService routeService;
+    private final SmsNotificationService smsService;
+    private final PodRecordRepository podRepository;
 
     @Transactional
     public StopResponse create(CreateStopRequest request) {
@@ -72,13 +75,32 @@ public class DeliveryOrderService {
     public StopResponse updateStatus(String orderId, UpdateStopStatusRequest request) {
         DeliveryOrder order = findOrder(orderId);
         order.setStatus(request.status());
-        if (request.status() == DeliveryStatus.FAILED && request.failedReasonNotes() != null) {
-            order.setFailedReasonNotes(request.failedReasonNotes());
+        if (request.status() == DeliveryStatus.FAILED || request.status() == DeliveryStatus.ATTEMPTED_ABSENT || request.status() == DeliveryStatus.ATTEMPTED_NO_ACCESS) {
+            if (request.failedReasonNotes() != null) {
+                order.setFailedReasonNotes(request.failedReasonNotes());
+            } else {
+                order.setFailedReasonNotes(request.status().name());
+            }
+            order.setStatus(DeliveryStatus.FAILED);
+            // Send failed SMS
+            String nextDate = LocalDateTime.now().plusDays(1).format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+            smsService.sendDeliveryFailedAlert(order, nextDate, "+1234567890"); // Placeholder support phone
         }
         if (request.status() == DeliveryStatus.DELIVERED) {
+            order.setStatus(DeliveryStatus.DELIVERED);
             order.setFailedReasonNotes(null);
+            sendCompletionSms(order);
+        }
+        if (request.status() == DeliveryStatus.OUT_FOR_DELIVERY) {
+            smsService.sendDriverNearbyAlert(order, order.getEstimatedArrivalTime() != null ? order.getEstimatedArrivalTime().toString() : "soon");
         }
         return toResponse(orderRepository.save(order));
+    }
+
+    private void sendCompletionSms(DeliveryOrder order) {
+        String podUrl = podRepository.findByDeliveryIdOrderByUploadedAtDesc(order.getOrderId())
+                .stream().findFirst().map(p -> p.getImageUrl()).orElse("No signature provided");
+        smsService.sendDeliveryCompletedAlert(order, podUrl);
     }
 
     @Transactional
@@ -88,6 +110,7 @@ public class DeliveryOrderService {
             throw new InvalidOperationException("Delivery can only be started from PENDING or ROUTED status");
         }
         order.setStatus(DeliveryStatus.OUT_FOR_DELIVERY);
+        smsService.sendDriverNearbyAlert(order, order.getEstimatedArrivalTime() != null ? order.getEstimatedArrivalTime().toString() : "soon");
         return toResponse(orderRepository.save(order));
     }
 
@@ -96,6 +119,7 @@ public class DeliveryOrderService {
         DeliveryOrder order = findOrder(orderId);
         order.setStatus(DeliveryStatus.DELIVERED);
         order.setFailedReasonNotes(null);
+        sendCompletionSms(order);
         return toResponse(orderRepository.save(order));
     }
 
@@ -104,6 +128,8 @@ public class DeliveryOrderService {
         DeliveryOrder order = findOrder(orderId);
         order.setStatus(DeliveryStatus.FAILED);
         order.setFailedReasonNotes(reason);
+        String nextDate = LocalDateTime.now().plusDays(1).format(java.time.format.DateTimeFormatter.ofPattern("MMM dd, yyyy"));
+        smsService.sendDeliveryFailedAlert(order, nextDate, "+1234567890");
         return toResponse(orderRepository.save(order));
     }
 
