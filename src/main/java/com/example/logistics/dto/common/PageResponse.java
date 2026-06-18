@@ -24,4 +24,16 @@ public record PageResponse<T>(
                 page.isLast()
         );
     }
+
+    public static <E, T> PageResponse<T> of(Page<E> page, java.util.function.Function<E, T> mapper) {
+        return new PageResponse<>(
+                page.getContent().stream().map(mapper).toList(),
+                page.getNumber(),
+                page.getSize(),
+                page.getTotalElements(),
+                page.getTotalPages(),
+                page.isFirst(),
+                page.isLast()
+        );
+    }
 }
