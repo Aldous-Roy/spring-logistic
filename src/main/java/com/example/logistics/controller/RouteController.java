@@ -315,4 +315,10 @@ public class RouteController {
     public ResponseEntity<ApiResponse<RouteResponse>> reorder(@PathVariable UUID id, @Valid @RequestBody ResequenceOrdersRequest request) {
         return ResponseEntity.ok(ApiResponse.success(routeService.resequenceOrders(id, request), 200));
     }
+
+    @GetMapping("/my-route")
+    @PreAuthorize("hasRole('DRIVER')")
+    public ResponseEntity<ApiResponse<com.example.logistics.dto.route.DriverRouteResponse>> getMyRoute() {
+        return ResponseEntity.ok(ApiResponse.success(routeService.getMyRoute(), 200));
+    }
 }

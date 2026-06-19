@@ -17,6 +17,9 @@ import com.example.logistics.repository.DeliveryOrderRepository;
 import com.example.logistics.repository.DeliveryRouteRepository;
 import com.example.logistics.repository.DriverProfileRepository;
 import com.example.logistics.repository.DriverAttendanceRepository;
+import com.example.logistics.security.CurrentUserFacade;
+import com.example.logistics.entity.AppUser;
+import com.example.logistics.dto.route.DriverRouteResponse;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -42,6 +45,7 @@ public class RouteService {
     private final DriverProfileRepository driverRepository;
     private final DriverAttendanceRepository attendanceRepository;
     private final RouteOptimizationService routeOptimizationService;
+    private final CurrentUserFacade currentUserFacade;
 
     @Transactional
     public RouteResponse create(RouteCreateRequest request) {
@@ -408,6 +412,44 @@ public class RouteService {
                 route.getActualStartAt(),
                 route.getActualEndAt(),
                 route.getUpdatedAt()
+        );
+    }
+
+    public DriverRouteResponse getMyRoute() {
+        AppUser currentUser = currentUserFacade.currentUser();
+        DriverProfile driver = driverRepository.findByEmployeeId(currentUser.getEmployeeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Driver profile not found for user: " + currentUser.getEmployeeId()));
+        LocalDate today = LocalDate.now();
+        List<DeliveryRoute> routes = routeRepository.findByDriverIdAndRouteDate(driver.getDriverId(), today);
+        if (routes.isEmpty()) {
+            throw new ResourceNotFoundException("No route allocated for today");
+        }
+        // Pick first active or assigned route
+        DeliveryRoute route = routes.stream()
+                .filter(r -> r.getStatus() == RouteStatus.ASSIGNED || r.getStatus() == RouteStatus.IN_PROGRESS)
+                .findFirst()
+                .orElse(routes.get(0));
+
+        List<DeliveryOrder> orders = orderRepository.findByRouteOrderBySequenceNumberAscCreatedAtAsc(route);
+        List<DriverRouteResponse.StopDetail> stops = orders.stream()
+                .map(order -> new DriverRouteResponse.StopDetail(
+                        order.getOrderId(),
+                        order.getSequenceNumber() != null ? order.getSequenceNumber() : 0,
+                        order.getDeliveryAddress(),
+                        order.getCustomerName(),
+                        order.getPackageWeightKg() != null ? (int) Math.ceil(order.getPackageWeightKg().doubleValue() / 1.5) : 1,
+                        order.getStatus().name(),
+                        order.getEstimatedArrivalTime() != null ? order.getEstimatedArrivalTime().format(java.time.format.DateTimeFormatter.ofPattern("h:mm a")) : null,
+                        order.getLatitude() != null ? order.getLatitude().doubleValue() : null,
+                        order.getLongitude() != null ? order.getLongitude().doubleValue() : null,
+                        order.getServiceTimeMins()
+                ))
+                .toList();
+        return new DriverRouteResponse(
+                route.getRouteId().toString(),
+                route.getRouteCode(),
+                route.getStatus().name(),
+                stops
         );
     }
 }
